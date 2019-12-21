@@ -1,9 +1,13 @@
-module Date exposing (Date, createDate, fromString, toString)
+module Date exposing (Date, createDate, fromString, toString, getDay, getMonth, getYear)
 
 import Parser exposing ((|.), (|=), Parser, andThen, end, int, problem, run, succeed, symbol, chompIf, chompWhile, oneOf)
 
 
-type alias Date =
+type Date = 
+    Date InternalDate
+
+
+type alias InternalDate =
     { day : Int
     , month : Int
     , year : Int
@@ -21,7 +25,7 @@ createDate day month year =
     in
     case run (isValid date) "" of
         Ok validDate ->
-            Ok validDate
+            Ok (Date validDate)
 
         Err deadEnds ->
             case deadEnds of
@@ -31,15 +35,15 @@ createDate day month year =
                             Err error
 
                         _ ->
-                            Err ("Could not create the date '" ++ toString date ++ "'")
+                            Err ("Could not create the date '" ++ toString (Date date) ++ "'")
 
                 _ ->
-                    Err ("Could not create the date '" ++ toString date ++ "'")
+                    Err ("Could not create the date '" ++ toString (Date date) ++ "'")
 
 
-parser : Parser Date
+parser : Parser InternalDate
 parser =
-    succeed Date
+    succeed InternalDate
         |. chompWhile (\c -> c == '0')
         |= int
         |. symbol "/"
@@ -51,7 +55,7 @@ parser =
         |> andThen isValid
 
 
-isValid : Date -> Parser Date
+isValid : InternalDate -> Parser InternalDate
 isValid date =
     if date.month < 1 || date.month > 12 then
         problem "The month must be between 1 and 12"
@@ -76,7 +80,7 @@ fromString : String -> Result String Date
 fromString string =
     case run parser string of
         Ok date ->
-            Ok date
+            Ok (Date date)
 
         Err deadEnds ->
             case deadEnds of
@@ -94,4 +98,19 @@ fromString string =
 
 toString : Date -> String
 toString date =
-    String.fromInt date.day ++ "/" ++ String.fromInt date.month ++ "/" ++ String.fromInt date.year
+    String.fromInt (getDay date) ++ "/" ++ String.fromInt (getMonth date) ++ "/" ++ String.fromInt (getYear date)
+
+
+getDay : Date -> Int
+getDay date =
+    case date of Date internalDate -> internalDate.day
+
+
+getMonth : Date -> Int
+getMonth date =
+    case date of Date internalDate -> internalDate.month
+
+
+getYear : Date -> Int
+getYear date =
+    case date of Date internalDate -> internalDate.year

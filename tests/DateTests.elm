@@ -1,9 +1,8 @@
-module DateTests exposing (..)
+module DateTests exposing (suite)
 
 import Date
-import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
-import Test exposing (..)
+import Expect
+import Test exposing (describe, test, Test)
 
 
 suite : Test

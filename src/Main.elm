@@ -42,128 +42,139 @@ type alias Exercise =
     }
 
 
+type ExerciseNameStatus
+    = ValidName String
+    | EmptyName
+
+
+validateName : String -> ExerciseNameStatus
+validateName name =
+    if String.length name > 0 then
+        ValidName name
+    else
+        EmptyName
+
+
+type ExerciseSetsNumberStatus
+    = ValidSetsNumber Int
+    | NotANumberSetsNumber
+    | IllegalValueSetsNumber
+
+
+validateSetsNumber : String -> ExerciseSetsNumberStatus
+validateSetsNumber setsNumberStr =
+    case String.toInt setsNumberStr of
+        Just setsNumber ->
+            if setsNumber > 0 then
+                ValidSetsNumber setsNumber
+            else
+                IllegalValueSetsNumber
+        Nothing ->
+            NotANumberSetsNumber
+
+
+type ExerciseRepetitionsNumberStatus
+    = ValidRepetitionsNumber Int
+    | NotANumberRepetitionsNumber
+    | IllegalValueRepetitionsNumber
+
+
+validateRepetitionsNumber : String -> ExerciseRepetitionsNumberStatus
+validateRepetitionsNumber repetitionsNumberStr =
+    case String.toInt repetitionsNumberStr of
+        Just repetitionsNumber ->
+            if repetitionsNumber > 0 then
+                ValidRepetitionsNumber repetitionsNumber
+            else
+                IllegalValueRepetitionsNumber
+        Nothing ->
+            NotANumberRepetitionsNumber
+
+
+type ExerciseDateStatus
+    = ValidDate Date.Date
+    | EmptyDate
+    | CannotParseDate String
+
+
+validateDate : String -> ExerciseDateStatus
+validateDate dateStr =
+    if String.length dateStr == 0 then
+        EmptyDate
+    else
+        case Date.fromString dateStr of
+            Ok date ->
+                ValidDate date
+            Err error ->
+                CannotParseDate error
+
+
+
 type alias CreateExerciseModel =
     { name : String
-    , nameError : String
-    , setsNumber : Maybe Int
-    , setsNumberError : String
-    , repetitionsNumber : Maybe Int
-    , repetitionsNumberError : String
+    , nameStatus : ExerciseNameStatus
+    , setsNumber : String
+    , setsNumberStatus : ExerciseSetsNumberStatus
+    , repetitionsNumber : String
+    , repetitionsNumberStatus : ExerciseRepetitionsNumberStatus
     , date : String
-    , dateError : String
+    , dateStatus : ExerciseDateStatus
     }
 
 
 newCreateExerciseModel : CreateExerciseModel
 newCreateExerciseModel =
     { name = ""
-    , nameError = ""
-    , setsNumber = Nothing
-    , setsNumberError = ""
-    , repetitionsNumber = Nothing
-    , repetitionsNumberError = ""
+    , nameStatus = validateName ""
+    , setsNumber = ""
+    , setsNumberStatus = validateSetsNumber ""
+    , repetitionsNumber = ""
+    , repetitionsNumberStatus = validateRepetitionsNumber ""
     , date = ""
-    , dateError = ""
+    , dateStatus = validateDate ""
     }
 
 
 convertCreateExerciseModelToExercise : CreateExerciseModel -> Result CreateExerciseModel Exercise
 convertCreateExerciseModelToExercise createExerciseModel =
     let
-        nameValid =
-            String.length createExerciseModel.name > 0
+        nameStatus = validateName createExerciseModel.name
 
-        setsNumberValid =
-            case createExerciseModel.setsNumber of
-                Just setsNumber ->
-                    setsNumber > 0
+        setsNumberStatus = validateSetsNumber createExerciseModel.setsNumber
 
-                Nothing ->
-                    False
+        repetitionsNumberStatus = validateRepetitionsNumber createExerciseModel.repetitionsNumber
 
-        repetitionsNumberValid =
-            case createExerciseModel.repetitionsNumber of
-                Just repetitionsNumber ->
-                    repetitionsNumber > 0
-
-                Nothing ->
-                    False
-
-        resultDate =
-            Date.fromString createExerciseModel.date
-
-        dateValid =
-            case resultDate of
-                Ok _ ->
-                    True
-
-                Err _ ->
-                    False
+        dateStatus = validateDate createExerciseModel.date
     in
-    if nameValid && setsNumberValid && repetitionsNumberValid && dateValid then
-        Ok
-            { name = createExerciseModel.name
-            , setsNumber =
-                case createExerciseModel.setsNumber of
-                    Just setsNumber ->
-                        setsNumber
-
-                    Nothing ->
-                        0
-            , repetitionsNumber =
-                case createExerciseModel.repetitionsNumber of
-                    Just repetitionsNumber ->
-                        repetitionsNumber
-
-                    Nothing ->
-                        0
-            , date =
-                case resultDate of
-                    Ok date ->
-                        date
-
-                    Err _ ->
-                        { day = 0, month = 0, year = 0 }
-            }
-
-    else
-        Err
-            { createExerciseModel
-                | nameError =
-                    if nameValid then
-                        ""
-
-                    else
-                        "The name cannot be empty"
-                , setsNumberError =
-                    if setsNumberValid then
-                        ""
-
-                    else
-                        "The sets number has to be greater than zero"
-                , repetitionsNumberError =
-                    if repetitionsNumberValid then
-                        ""
-
-                    else
-                        "The repetitions number has to be greater than zero"
-                , dateError =
-                    case resultDate of
-                        Ok _ ->
-                            ""
-
-                        Err dateError ->
-                            dateError
-            }
+        case nameStatus of
+            ValidName name ->
+                case setsNumberStatus of
+                    ValidSetsNumber setsNumber ->
+                        case repetitionsNumberStatus of
+                            ValidRepetitionsNumber repetitionsNumber ->
+                                case dateStatus of
+                                    ValidDate date ->
+                                        Ok
+                                            { name = name
+                                            , setsNumber = setsNumber
+                                            , repetitionsNumber = repetitionsNumber
+                                            , date = date
+                                            }
+                                    _ ->
+                                        Err { createExerciseModel | nameStatus = nameStatus, setsNumberStatus = setsNumberStatus, repetitionsNumberStatus = repetitionsNumberStatus, dateStatus = dateStatus }
+                            _ ->
+                                Err { createExerciseModel | nameStatus = nameStatus, setsNumberStatus = setsNumberStatus, repetitionsNumberStatus = repetitionsNumberStatus, dateStatus = dateStatus }
+                    _ ->
+                        Err { createExerciseModel | nameStatus = nameStatus, setsNumberStatus = setsNumberStatus, repetitionsNumberStatus = repetitionsNumberStatus, dateStatus = dateStatus }
+            _ ->
+                Err { createExerciseModel | nameStatus = nameStatus, setsNumberStatus = setsNumberStatus, repetitionsNumberStatus = repetitionsNumberStatus, dateStatus = dateStatus }
 
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
     ( Model key
         url
-        [ { name = "Exercise 1", setsNumber = 10, repetitionsNumber = 5, date = { day = 17, month = 3, year = 2018 } }
-        , { name = "Exercise 2", setsNumber = 2, repetitionsNumber = 20, date = { day = 19, month = 3, year = 2018 } }
-        ]
+        []
         (parseRoute url)
     , Cmd.none
     )
@@ -253,18 +264,18 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        UpdateCreateExerciceSetsNumber newSetsNumberStr ->
+        UpdateCreateExerciceSetsNumber newSetsNumber ->
             case model.route of
                 CreateExercice createExerciseModel ->
-                    ( { model | route = CreateExercice { createExerciseModel | setsNumber = String.toInt newSetsNumberStr } }, Cmd.none )
+                    ( { model | route = CreateExercice { createExerciseModel | setsNumber = newSetsNumber } }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
 
-        UpdateCreateExerciceRepetitionsNumber newRepetitionsNumberStr ->
+        UpdateCreateExerciceRepetitionsNumber newRepetitionsNumber ->
             case model.route of
                 CreateExercice createExerciseModel ->
-                    ( { model | route = CreateExercice { createExerciseModel | repetitionsNumber = String.toInt newRepetitionsNumberStr } }, Cmd.none )
+                    ( { model | route = CreateExercice { createExerciseModel | repetitionsNumber = newRepetitionsNumber } }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -327,14 +338,57 @@ viewListExercises exercises =
         )
 
 
+nameStatusToErrorMessage : ExerciseNameStatus -> String
+nameStatusToErrorMessage status =
+    case status of
+        ValidName _ -> ""
+        EmptyName -> "Please enter the name"
+
+
+setsNumberStatusToErrorMessage : ExerciseSetsNumberStatus -> String
+setsNumberStatusToErrorMessage status =
+    case status of
+        ValidSetsNumber _ -> ""
+        NotANumberSetsNumber -> "Please enter a sets number"
+        IllegalValueSetsNumber -> "The sets number must be greater than zero"
+
+
+repetitionsNumberStatusToErrorMessage : ExerciseRepetitionsNumberStatus -> String
+repetitionsNumberStatusToErrorMessage status =
+    case status of
+        ValidRepetitionsNumber _ -> ""
+        NotANumberRepetitionsNumber -> "Please enter a repetitions number"
+        IllegalValueRepetitionsNumber -> "The repetitions number must be greater than zero"
+
+
+dateStatusToErrorMessage : ExerciseDateStatus -> String
+dateStatusToErrorMessage status =
+    case status of
+        ValidDate _ -> ""
+        EmptyDate -> "Please enter the date"
+        CannotParseDate error -> error
+
+
+
 viewCreateExercise : CreateExerciseModel -> Html.Html Msg
 viewCreateExercise createExerciseModel =
     Html.div []
         [ Html.div [] [ Html.text "Create an exercice" ]
-        , Html.div [] [ Html.input [ Html.Events.onInput UpdateCreateExerciceName, Html.Attributes.placeholder "Exercise name" ] [], Html.text createExerciseModel.nameError ]
-        , Html.div [] [ Html.input [ Html.Events.onInput UpdateCreateExerciceSetsNumber, Html.Attributes.placeholder "Sets number" ] [], Html.text createExerciseModel.setsNumberError ]
-        , Html.div [] [ Html.input [ Html.Events.onInput UpdateCreateExerciceRepetitionsNumber, Html.Attributes.placeholder "Repetions number" ] [], Html.text createExerciseModel.repetitionsNumberError ]
-        , Html.div [] [ Html.input [ Html.Events.onInput UpdateCreateExerciceDate, Html.Attributes.placeholder "Date" ] [], Html.text createExerciseModel.dateError ]
+        , Html.div [] 
+            [ Html.input [ Html.Events.onInput UpdateCreateExerciceName, Html.Attributes.placeholder "Exercise name" ] []
+            , Html.text (nameStatusToErrorMessage createExerciseModel.nameStatus)
+            ]
+        , Html.div []
+            [ Html.input [ Html.Events.onInput UpdateCreateExerciceSetsNumber, Html.Attributes.placeholder "Sets number" ] []
+            , Html.text (setsNumberStatusToErrorMessage createExerciseModel.setsNumberStatus)
+            ]
+        , Html.div []
+            [ Html.input [ Html.Events.onInput UpdateCreateExerciceRepetitionsNumber, Html.Attributes.placeholder "Repetions number" ] []
+            , Html.text (repetitionsNumberStatusToErrorMessage createExerciseModel.repetitionsNumberStatus)
+            ]
+        , Html.div []
+            [ Html.input [ Html.Events.onInput UpdateCreateExerciceDate, Html.Attributes.placeholder "Date" ] []
+            , Html.text (dateStatusToErrorMessage createExerciseModel.dateStatus) ]
         , Html.div [] [ Html.button [ Html.Events.onClick ValidateCreateExercise ] [ Html.text "Create" ] ]
         , Html.div [] [ Html.button [ Html.Events.onClick CancelCreateExercise ] [ Html.text "Cancel" ] ]
         ]

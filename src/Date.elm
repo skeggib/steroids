@@ -1,10 +1,10 @@
-module Date exposing (Date, createDate, fromString, toString, getDay, getMonth, getYear)
+module Date exposing (Date, createDate, fromString, getDay, getMonth, getYear, toString)
 
-import Parser exposing ((|.), (|=), Parser, andThen, end, int, problem, run, succeed, symbol, chompIf, chompWhile, oneOf)
+import Parser exposing ((|.), (|=), Parser, andThen, chompWhile, end, int, problem, run, succeed, symbol)
 
 
-type Date = 
-    Date InternalDate
+type Date
+    = Date InternalDate
 
 
 type alias InternalDate =
@@ -103,14 +103,20 @@ toString date =
 
 getDay : Date -> Int
 getDay date =
-    case date of Date internalDate -> internalDate.day
+    case date of
+        Date internalDate ->
+            internalDate.day
 
 
 getMonth : Date -> Int
 getMonth date =
-    case date of Date internalDate -> internalDate.month
+    case date of
+        Date internalDate ->
+            internalDate.month
 
 
 getYear : Date -> Int
 getYear date =
-    case date of Date internalDate -> internalDate.year
+    case date of
+        Date internalDate ->
+            internalDate.year

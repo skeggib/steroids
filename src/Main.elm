@@ -2,12 +2,11 @@ module Main exposing (main)
 
 import Browser
 import Browser.Navigation as Nav
+import CreateExerciseForm
 import Date
+import Exercise exposing (Exercise)
 import Form
 import Form.Error
-import Form.Field
-import Form.Input
-import Form.Validate
 import Html
 import Html.Attributes
 import Html.Events
@@ -39,59 +38,6 @@ type alias Model =
     }
 
 
-type alias Exercise =
-    { name : String
-    , setsNumber : Int
-    , repetitionsNumber : Int
-    , date : Date.Date
-    }
-
-
-type ExerciseError
-    = InvalidDate String
-
-
-validateExercise : Form.Validate.Validation ExerciseError Exercise
-validateExercise =
-    Form.Validate.succeed Exercise
-        |> Form.Validate.andMap (Form.Validate.field "name" Form.Validate.string)
-        |> Form.Validate.andMap
-            (Form.Validate.field "setsNumber"
-                (Form.Validate.int
-                    |> Form.Validate.andThen (Form.Validate.minInt 1)
-                )
-            )
-        |> Form.Validate.andMap
-            (Form.Validate.field "repetitionsNumber"
-                (Form.Validate.int
-                    |> Form.Validate.andThen (Form.Validate.minInt 1)
-                )
-            )
-        |> Form.Validate.andMap (Form.Validate.field "date" validateDate)
-
-
-validateDate : Form.Validate.Validation ExerciseError Date.Date
-validateDate field =
-    case Form.Field.asString field of
-        Just dateStr ->
-            if String.length dateStr == 0 then
-                Err (Form.Error.value Form.Error.Empty)
-
-            else
-                case Date.fromString dateStr of
-                    Ok date ->
-                        Ok date
-
-                    Err error ->
-                        Err (Form.Error.value (Form.Error.CustomError (InvalidDate error)))
-        Nothing ->
-            Err (Form.Error.value Form.Error.Empty)
-
-
-type alias CreateExerciseForm =
-    Form.Form ExerciseError Exercise
-
-
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
     ( Model key
@@ -108,7 +54,7 @@ init _ url key =
 
 type Route
     = ListExercises
-    | CreateExercise CreateExerciseForm
+    | CreateExercise CreateExerciseForm.Form
     | NotFound
 
 
@@ -117,7 +63,7 @@ routeParser =
     oneOf
         [ map ListExercises top
         , map ListExercises (s "exercises")
-        , map (CreateExercise (Form.initial [] validateExercise)) (s "exercises" </> s "create")
+        , map (CreateExercise CreateExerciseForm.init) (s "exercises" </> s "create")
         ]
 
 
@@ -138,7 +84,7 @@ parseRoute url =
 type Msg
     = UrlRequested Browser.UrlRequest
     | UrlChanged Url.Url
-    | CreateExerciseFormMsg Form.Msg
+    | CreateExerciseMsg CreateExerciseForm.Msg
     | CancelCreateExercise
 
 
@@ -158,19 +104,22 @@ update msg model =
             , Cmd.none
             )
 
-        CreateExerciseFormMsg formMsg ->
+        CreateExerciseMsg formMsg ->
             case model.route of
                 CreateExercise form ->
                     let
-                        newRoute = CreateExercise (Form.update validateExercise formMsg form)
+                        newRoute =
+                            CreateExercise (CreateExerciseForm.update formMsg form)
                     in
-                        case (formMsg, Form.getOutput form) of
-                            (Form.Submit, Just exercise) ->
-                                ( { model | exercises = exercise :: model.exercises }, Nav.pushUrl model.key "/exercises" )
-                            _ ->
-                                ({ model | route = newRoute }, Cmd.none)
+                    case ( formMsg, CreateExerciseForm.getOutput form ) of
+                        ( Form.Submit, Just exercise ) ->
+                            ( { model | exercises = exercise :: model.exercises }, Nav.pushUrl model.key "/exercises" )
+
+                        _ ->
+                            ( { model | route = newRoute }, Cmd.none )
+
                 _ ->
-                    (model, Cmd.none)                
+                    ( model, Cmd.none )
 
         CancelCreateExercise ->
             ( model, Nav.pushUrl model.key "/exercises" )
@@ -225,10 +174,10 @@ viewListExercises exercises =
         )
 
 
-viewCreateExercise : CreateExerciseForm -> Html.Html Msg
+viewCreateExercise : CreateExerciseForm.Form -> Html.Html Msg
 viewCreateExercise form =
     Html.div []
-        [ Html.map CreateExerciseFormMsg (viewExerciseForm form)
+        [ Html.map CreateExerciseMsg (CreateExerciseForm.view form createExerciseErrorToString)
         , Html.div []
             [ Html.button
                 [ Html.Events.onClick CancelCreateExercise ]
@@ -237,55 +186,52 @@ viewCreateExercise form =
         ]
 
 
-viewExerciseForm : CreateExerciseForm -> Html.Html Form.Msg
-viewExerciseForm form =
-    let
-        errorFor field =
-            case field.liveError of
-                Just error ->
-                    -- TODO: replace toString with your own translations
-                    Html.text (Debug.toString error)
+createExerciseErrorToString : Form.Error.ErrorValue CreateExerciseForm.Error -> String
+createExerciseErrorToString error =
+    case error of
+        Form.Error.Empty ->
+            "Please fill this field"
 
-                Nothing ->
-                    Html.text ""
+        Form.Error.InvalidString ->
+            "Please fill this field"
 
-        nameField =
-            Form.getFieldAsString "name" form
+        Form.Error.InvalidEmail ->
+            "Please enter a valid email"
 
-        setsNumberField =
-            Form.getFieldAsString "setsNumber" form
+        Form.Error.InvalidFormat ->
+            "This value is not valid"
 
-        repetitionsNumberField =
-            Form.getFieldAsString "repetitionsNumber" form
+        Form.Error.InvalidInt ->
+            "This value is not valid"
 
-        dateField =
-            Form.getFieldAsString "date" form
-    in
-    Html.div []
-        [ Html.div [] [ Html.text "Create an exercise" ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Name" ]
-            , Form.Input.textInput nameField []
-            , errorFor nameField
-            ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Sets number" ]
-            , Form.Input.textInput setsNumberField []
-            , errorFor setsNumberField
-            ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Repetitions numer" ]
-            , Form.Input.textInput repetitionsNumberField []
-            , errorFor repetitionsNumberField
-            ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Date" ]
-            , Form.Input.textInput dateField []
-            , errorFor dateField
-            ]
-        , Html.div []
-            [ Html.button
-                [ Html.Events.onClick Form.Submit ]
-                [ Html.text "Create" ]
-            ]
-        ]
+        Form.Error.InvalidFloat ->
+            "This value is not valid"
+
+        Form.Error.InvalidBool ->
+            "This value is not valid"
+
+        Form.Error.SmallerIntThan value ->
+            "This field cannot be smaller than " ++ String.fromInt value
+
+        Form.Error.GreaterIntThan value ->
+            "This field cannot be greater than " ++ String.fromInt value
+
+        Form.Error.SmallerFloatThan value ->
+            "This field cannot be smaller than " ++ String.fromFloat value
+
+        Form.Error.GreaterFloatThan value ->
+            "This field cannot be greater than " ++ String.fromFloat value
+
+        Form.Error.ShorterStringThan value ->
+            "This field must be at least " ++ String.fromInt value ++ " characters long"
+
+        Form.Error.LongerStringThan value ->
+            "This field must be at most " ++ String.fromInt value ++ " characters long"
+
+        Form.Error.NotIncludedIn ->
+            "I do not know this value"
+
+        Form.Error.CustomError customError ->
+            case customError of
+                CreateExerciseForm.InvalidDate value ->
+                    value

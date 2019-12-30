@@ -15,6 +15,7 @@ import Task
 import Time
 import Url
 import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
+import Storage
 
 
 main : Program () Model Msg
@@ -47,7 +48,7 @@ type alias LoadingModel =
 type alias LoadedModel =
     { key : Nav.Key
     , url : Url.Url
-    , exercises : List Exercise
+    , store : Storage.Store
     , route : Route
     , seed : Random.Seed
     }
@@ -136,14 +137,18 @@ update msg model =
                     in
                     case route of
                         DeleteExercise id ->
-                            ( Loaded
-                                { loaded
-                                    | url = url
-                                    , route = route
-                                    , exercises = List.filter (\exercise -> exercise.id /= id) loaded.exercises
-                                }
-                            , Nav.pushUrl loaded.key "/exercises"
-                            )
+                            let
+                                existingExercises = Storage.getExercises loaded.store
+                                filteredExercises = List.filter (\exercise -> exercise.id /= id) existingExercises
+                            in
+                                ( Loaded
+                                    { loaded
+                                        | url = url
+                                        , route = route
+                                        , store = Storage.setExercises filteredExercises loaded.store
+                                    }
+                                , Nav.pushUrl loaded.key "/exercises"
+                                )
 
                         _ ->
                             ( Loaded { loaded | url = url, route = route }, Cmd.none )
@@ -164,7 +169,7 @@ update msg model =
                                 ( Form.Submit, Just tuple ) ->
                                     ( Loaded
                                         { loaded
-                                            | exercises = Tuple.first tuple :: loaded.exercises
+                                            | store = Storage.setExercises (Tuple.first tuple :: Storage.getExercises loaded.store) loaded.store
                                             , seed = Tuple.second tuple
                                         }
                                     , Nav.pushUrl loaded.key "/exercises"
@@ -190,7 +195,7 @@ update msg model =
                     ( Loaded
                         { key = loading.key
                         , url = loading.url
-                        , exercises = []
+                        , store = Storage.openStore
                         , route = parseRoute loading.url
                         , seed = Random.initialSeed (Time.posixToMillis time)
                         }
@@ -231,7 +236,7 @@ viewLoaded model =
             viewNotFound
 
         ListExercises ->
-            viewListExercises model.exercises
+            viewListExercises (Storage.getExercises model.store)
 
         CreateExercise form ->
             viewCreateExercise form

@@ -11,11 +11,11 @@ import Html
 import Html.Attributes
 import Html.Events
 import Random
+import Storage
 import Task
 import Time
 import Url
 import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
-import Storage
 
 
 main : Program () Model Msg
@@ -138,17 +138,20 @@ update msg model =
                     case route of
                         DeleteExercise id ->
                             let
-                                existingExercises = Storage.getExercises loaded.store
-                                filteredExercises = List.filter (\exercise -> exercise.id /= id) existingExercises
+                                existingExercises =
+                                    Storage.getExercises loaded.store
+
+                                filteredExercises =
+                                    List.filter (\exercise -> exercise.id /= id) existingExercises
                             in
-                                ( Loaded
-                                    { loaded
-                                        | url = url
-                                        , route = route
-                                        , store = Storage.setExercises filteredExercises loaded.store
-                                    }
-                                , Nav.pushUrl loaded.key "/exercises"
-                                )
+                            ( Loaded
+                                { loaded
+                                    | url = url
+                                    , route = route
+                                    , store = Storage.setExercises filteredExercises loaded.store
+                                }
+                            , Nav.pushUrl loaded.key "/exercises"
+                            )
 
                         _ ->
                             ( Loaded { loaded | url = url, route = route }, Cmd.none )

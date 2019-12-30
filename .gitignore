@@ -10,10 +10,6 @@ elm-stuff
 # elm-repl generated files
 repl-temp-*
 
-#--- Output
-
-output/
-
 #--- Node
 
 node_modules/

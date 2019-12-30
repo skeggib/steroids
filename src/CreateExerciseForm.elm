@@ -1,7 +1,7 @@
 module CreateExerciseForm exposing (Error(..), Form, Msg, getOutput, init, update, validate, view)
 
 import Date
-import Exercise exposing (Exercise)
+import Exercise
 import Form exposing (getFieldAsString)
 import Form.Error exposing (ErrorValue(..), value)
 import Form.Field exposing (asString)
@@ -9,10 +9,19 @@ import Form.Input exposing (textInput)
 import Form.Validate exposing (Validation, andMap, andThen, field, int, minInt, string, succeed)
 import Html
 import Html.Events
+import Random
 
 
 type alias Form =
     Form.Form Error Exercise
+
+
+type alias Exercise =
+    { name : String
+    , setsNumber : Int
+    , repetitionsNumber : Int
+    , date : Date.Date
+    }
 
 
 type Error
@@ -71,9 +80,25 @@ validateDate field =
             Err (value Empty)
 
 
-getOutput : Form -> Maybe Exercise
-getOutput form =
-    Form.getOutput form
+getOutput : Form -> Random.Seed -> Maybe ( Exercise.Exercise, Random.Seed )
+getOutput form seed =
+    Maybe.map (formExerciseToExercise seed) (Form.getOutput form)
+
+
+formExerciseToExercise : Random.Seed -> Exercise -> ( Exercise.Exercise, Random.Seed )
+formExerciseToExercise seed formExercise =
+    let
+        idTuple =
+            Exercise.createId seed
+    in
+    ( { id = Tuple.first idTuple
+      , name = formExercise.name
+      , setsNumber = formExercise.setsNumber
+      , repetitionsNumber = formExercise.repetitionsNumber
+      , date = formExercise.date
+      }
+    , Tuple.second idTuple
+    )
 
 
 view : Form -> (ErrorValue Error -> String) -> Html.Html Msg

@@ -10,8 +10,11 @@ import Form.Error
 import Html
 import Html.Attributes
 import Html.Events
+import Random
+import Task
+import Time
 import Url
-import Url.Parser exposing ((</>), Parser, map, oneOf, parse, s, top)
+import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
 
 
 main : Program () Model Msg
@@ -30,21 +33,30 @@ main =
 -- MODEL
 
 
-type alias Model =
+type Model
+    = Loading LoadingModel
+    | Loaded LoadedModel
+
+
+type alias LoadingModel =
+    { key : Nav.Key
+    , url : Url.Url
+    }
+
+
+type alias LoadedModel =
     { key : Nav.Key
     , url : Url.Url
     , exercises : List Exercise
     , route : Route
+    , seed : Random.Seed
     }
 
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Model key
-        url
-        []
-        (parseRoute url)
-    , Cmd.none
+    ( Loading { key = key, url = url }
+    , Task.perform CreateSeed Time.now
     )
 
 
@@ -55,6 +67,7 @@ init _ url key =
 type Route
     = ListExercises
     | CreateExercise CreateExerciseForm.Form
+    | DeleteExercise Exercise.Id
     | NotFound
 
 
@@ -64,6 +77,7 @@ routeParser =
         [ map ListExercises top
         , map ListExercises (s "exercises")
         , map (CreateExercise CreateExerciseForm.init) (s "exercises" </> s "create")
+        , map DeleteExercise (s "exercises" </> s "delete" </> custom "exerciseId" Exercise.idFromString)
         ]
 
 
@@ -84,6 +98,7 @@ parseRoute url =
 type Msg
     = UrlRequested Browser.UrlRequest
     | UrlChanged Url.Url
+    | CreateSeed Time.Posix
     | CreateExerciseMsg CreateExerciseForm.Msg
     | CancelCreateExercise
 
@@ -92,37 +107,98 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UrlRequested urlRequest ->
-            case urlRequest of
-                Browser.Internal url ->
-                    ( model, Nav.pushUrl model.key (Url.toString url) )
+            case model of
+                Loading loading ->
+                    case urlRequest of
+                        Browser.Internal url ->
+                            ( Loading loading, Nav.pushUrl loading.key (Url.toString url) )
 
-                Browser.External href ->
-                    ( model, Nav.load href )
+                        Browser.External href ->
+                            ( Loading loading, Nav.load href )
+
+                Loaded loaded ->
+                    case urlRequest of
+                        Browser.Internal url ->
+                            ( Loaded loaded, Nav.pushUrl loaded.key (Url.toString url) )
+
+                        Browser.External href ->
+                            ( Loaded loaded, Nav.load href )
 
         UrlChanged url ->
-            ( { model | url = url, route = parseRoute url }
-            , Cmd.none
-            )
+            case model of
+                Loading loading ->
+                    ( Loading { loading | url = url }, Cmd.none )
 
-        CreateExerciseMsg formMsg ->
-            case model.route of
-                CreateExercise form ->
+                Loaded loaded ->
                     let
-                        newRoute =
-                            CreateExercise (CreateExerciseForm.update formMsg form)
+                        route =
+                            parseRoute url
                     in
-                    case ( formMsg, CreateExerciseForm.getOutput form ) of
-                        ( Form.Submit, Just exercise ) ->
-                            ( { model | exercises = exercise :: model.exercises }, Nav.pushUrl model.key "/exercises" )
+                    case route of
+                        DeleteExercise id ->
+                            ( Loaded
+                                { loaded
+                                    | url = url
+                                    , route = route
+                                    , exercises = List.filter (\exercise -> exercise.id /= id) loaded.exercises
+                                }
+                            , Nav.pushUrl loaded.key "/exercises"
+                            )
 
                         _ ->
-                            ( { model | route = newRoute }, Cmd.none )
+                            ( Loaded { loaded | url = url, route = route }, Cmd.none )
 
-                _ ->
-                    ( model, Cmd.none )
+        CreateExerciseMsg formMsg ->
+            case model of
+                Loading loading ->
+                    ( Loading loading, Cmd.none )
+
+                Loaded loaded ->
+                    case loaded.route of
+                        CreateExercise form ->
+                            let
+                                newRoute =
+                                    CreateExercise (CreateExerciseForm.update formMsg form)
+                            in
+                            case ( formMsg, CreateExerciseForm.getOutput form loaded.seed ) of
+                                ( Form.Submit, Just tuple ) ->
+                                    ( Loaded
+                                        { loaded
+                                            | exercises = Tuple.first tuple :: loaded.exercises
+                                            , seed = Tuple.second tuple
+                                        }
+                                    , Nav.pushUrl loaded.key "/exercises"
+                                    )
+
+                                _ ->
+                                    ( Loaded { loaded | route = newRoute }, Cmd.none )
+
+                        _ ->
+                            ( Loaded loaded, Cmd.none )
 
         CancelCreateExercise ->
-            ( model, Nav.pushUrl model.key "/exercises" )
+            case model of
+                Loading loading ->
+                    ( Loading loading, Cmd.none )
+
+                Loaded loaded ->
+                    ( Loaded loaded, Nav.pushUrl loaded.key "/exercises" )
+
+        CreateSeed time ->
+            case model of
+                Loading loading ->
+                    ( Loaded
+                        { key = loading.key
+                        , url = loading.url
+                        , exercises = []
+                        , route = parseRoute loading.url
+                        , seed = Random.initialSeed (Time.posixToMillis time)
+                        }
+                    , Nav.pushUrl loading.key (Url.toString loading.url)
+                    )
+
+                Loaded loaded ->
+                    ( Loaded loaded, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -138,17 +214,30 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Steroids"
     , body =
-        [ case model.route of
-            NotFound ->
-                viewNotFound
+        [ case model of
+            Loading _ ->
+                Html.text "Loading..."
 
-            ListExercises ->
-                viewListExercises model.exercises
-
-            CreateExercise form ->
-                viewCreateExercise form
+            Loaded loadedModel ->
+                viewLoaded loadedModel
         ]
     }
+
+
+viewLoaded : LoadedModel -> Html.Html Msg
+viewLoaded model =
+    case model.route of
+        NotFound ->
+            viewNotFound
+
+        ListExercises ->
+            viewListExercises model.exercises
+
+        CreateExercise form ->
+            viewCreateExercise form
+
+        DeleteExercise id ->
+            Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
 
 
 viewNotFound : Html.Html Msg
@@ -159,7 +248,17 @@ viewNotFound =
 viewExercise : Exercise -> Html.Html Msg
 viewExercise exercise =
     Html.div []
-        [ Html.text (exercise.name ++ " " ++ Date.toString exercise.date ++ " (" ++ String.fromInt exercise.setsNumber ++ " sets, " ++ String.fromInt exercise.repetitionsNumber ++ " repetitions)")
+        [ Html.text
+            (exercise.name
+                ++ " "
+                ++ Date.toString exercise.date
+                ++ " ("
+                ++ String.fromInt exercise.setsNumber
+                ++ " sets, "
+                ++ String.fromInt exercise.repetitionsNumber
+                ++ " repetitions)"
+            )
+        , Html.a [ Html.Attributes.href ("exercises/delete/" ++ Exercise.idToString exercise.id) ] [ Html.text "Delete" ]
         ]
 
 

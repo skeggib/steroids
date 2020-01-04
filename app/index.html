@@ -1,5 +1,6 @@
 <!DOCTYPE HTML>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <title>Main</title>
@@ -10,9 +11,18 @@
 <body>
   <div id="elm"></div>
   <script>
-  var app = Elm.Main.init({
-    node: document.getElementById('elm')
-  });
+    var app = Elm.Main.init({
+      node: document.getElementById('elm')
+    });
+
+    var storageName = 'storage';
+    app.ports.request.subscribe(function (data) {
+      app.ports.receive.send(JSON.parse(localStorage.getItem(storageName)));
+    });
+    app.ports.savePort.subscribe(function (data) {
+      localStorage.setItem(storageName, JSON.stringify(data));
+    });
   </script>
 </body>
+
 </html>

@@ -10,8 +10,10 @@ import Form.Error
 import Html
 import Html.Attributes
 import Html.Events
+import Json.Decode
+import Json.Encode
 import Random
-import Storage
+import Storage exposing (Store)
 import Task
 import Time
 import Url
@@ -42,13 +44,15 @@ type Model
 type alias LoadingModel =
     { key : Nav.Key
     , url : Url.Url
+    , seed : Maybe (Result String Random.Seed)
+    , store : Maybe (Result String Store)
     }
 
 
 type alias LoadedModel =
     { key : Nav.Key
     , url : Url.Url
-    , store : Storage.Store
+    , store : Store
     , route : Route
     , seed : Random.Seed
     }
@@ -56,8 +60,11 @@ type alias LoadedModel =
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Loading { key = key, url = url }
-    , Task.perform CreateSeed Time.now
+    ( Loading { key = key, url = url, seed = Nothing, store = Nothing }
+    , Cmd.batch
+        [ Task.perform CreateSeed Time.now
+        , Storage.request ()
+        ]
     )
 
 
@@ -100,6 +107,7 @@ type Msg
     = UrlRequested Browser.UrlRequest
     | UrlChanged Url.Url
     | CreateSeed Time.Posix
+    | ReceiveStore Json.Encode.Value
     | CreateExerciseMsg CreateExerciseForm.Msg
     | CancelCreateExercise
 
@@ -143,14 +151,20 @@ update msg model =
 
                                 filteredExercises =
                                     List.filter (\exercise -> exercise.id /= id) existingExercises
+
+                                newStore =
+                                    Storage.setExercises filteredExercises loaded.store
                             in
                             ( Loaded
                                 { loaded
                                     | url = url
                                     , route = route
-                                    , store = Storage.setExercises filteredExercises loaded.store
+                                    , store = newStore
                                 }
-                            , Nav.pushUrl loaded.key "/exercises"
+                            , Cmd.batch
+                                [ Storage.save newStore
+                                , Nav.pushUrl loaded.key "/exercises"
+                                ]
                             )
 
                         _ ->
@@ -170,12 +184,19 @@ update msg model =
                             in
                             case ( formMsg, CreateExerciseForm.getOutput form loaded.seed ) of
                                 ( Form.Submit, Just tuple ) ->
+                                    let
+                                        newStore =
+                                            Storage.setExercises (Tuple.first tuple :: Storage.getExercises loaded.store) loaded.store
+                                    in
                                     ( Loaded
                                         { loaded
-                                            | store = Storage.setExercises (Tuple.first tuple :: Storage.getExercises loaded.store) loaded.store
+                                            | store = newStore
                                             , seed = Tuple.second tuple
                                         }
-                                    , Nav.pushUrl loaded.key "/exercises"
+                                    , Cmd.batch
+                                        [ Storage.save newStore
+                                        , Nav.pushUrl loaded.key "/exercises"
+                                        ]
                                     )
 
                                 _ ->
@@ -195,23 +216,120 @@ update msg model =
         CreateSeed time ->
             case model of
                 Loading loading ->
-                    ( Loaded
-                        { key = loading.key
-                        , url = loading.url
-                        , store = Storage.openStore
-                        , route = parseRoute loading.url
-                        , seed = Random.initialSeed (Time.posixToMillis time)
-                        }
-                    , Nav.pushUrl loading.key (Url.toString loading.url)
-                    )
+                    let
+                        updatedLoading =
+                            { loading | seed = Just (Ok (Random.initialSeed (Time.posixToMillis time))) }
+
+                        maybeLoaded =
+                            loadingToLoaded updatedLoading
+                    in
+                    case maybeLoaded of
+                        Just loaded ->
+                            ( Loaded loaded
+                            , Nav.pushUrl updatedLoading.key (Url.toString updatedLoading.url)
+                            )
+
+                        Nothing ->
+                            ( Loading updatedLoading, Cmd.none )
 
                 Loaded loaded ->
                     ( Loaded loaded, Cmd.none )
 
+        ReceiveStore jsonValue ->
+            case model of
+                Loading loading ->
+                    let
+                        resultStore =
+                            Json.Decode.decodeValue Storage.decoder jsonValue
+
+                        resultNull =
+                            Json.Decode.decodeValue (Json.Decode.null True) jsonValue
+                    in
+                    case ( resultStore, resultNull ) of
+                        ( Ok store, _ ) ->
+                            let
+                                updatedLoading =
+                                    { loading | store = Just (Ok store) }
+
+                                maybeLoaded =
+                                    loadingToLoaded updatedLoading
+                            in
+                            case maybeLoaded of
+                                Just loaded ->
+                                    ( Loaded loaded
+                                    , Nav.pushUrl updatedLoading.key (Url.toString updatedLoading.url)
+                                    )
+
+                                Nothing ->
+                                    ( Loading updatedLoading, Cmd.none )
+
+                        ( _, Ok _ ) ->
+                            let
+                                updatedLoading =
+                                    { loading | store = Just (Ok Storage.init) }
+
+                                maybeLoaded =
+                                    loadingToLoaded updatedLoading
+                            in
+                            case maybeLoaded of
+                                Just loaded ->
+                                    ( Loaded loaded
+                                    , Nav.pushUrl updatedLoading.key (Url.toString updatedLoading.url)
+                                    )
+
+                                Nothing ->
+                                    ( Loading updatedLoading, Cmd.none )
+
+                        ( Err error, _ ) ->
+                            ( Loading { loading | store = Just (Err (Json.Decode.errorToString error)) }
+                            , Cmd.none
+                            )
+
+                Loaded loaded ->
+                    let
+                        resultStore =
+                            Json.Decode.decodeValue Storage.decoder jsonValue
+                    in
+                    case resultStore of
+                        Ok store ->
+                            ( Loaded { loaded | store = store }
+                            , Cmd.none
+                            )
+
+                        Err error ->
+                            let
+                                _ =
+                                    Debug.log (Json.Decode.errorToString error)
+                            in
+                            ( Loaded loaded, Cmd.none )
+
+
+loadingToLoaded : LoadingModel -> Maybe LoadedModel
+loadingToLoaded loading =
+    let
+        maybeSeed =
+            loading.seed
+
+        maybeStore =
+            loading.store
+    in
+    case ( maybeSeed, maybeStore ) of
+        ( Just (Ok seed), Just (Ok store) ) ->
+            Just
+                { key = loading.key
+                , url = loading.url
+                , store = store
+                , route = parseRoute loading.url
+                , seed = seed
+                }
+
+        _ ->
+            Nothing
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Storage.receive ReceiveStore
 
 
 
@@ -223,13 +341,26 @@ view model =
     { title = "Steroids"
     , body =
         [ case model of
-            Loading _ ->
-                Html.text "Loading..."
+            Loading loadingModel ->
+                viewLoading loadingModel
 
             Loaded loadedModel ->
                 viewLoaded loadedModel
         ]
     }
+
+
+viewLoading : LoadingModel -> Html.Html Msg
+viewLoading model =
+    case ( model.seed, model.store ) of
+        ( Just (Err error), _ ) ->
+            Html.text ("Cannot load seed: " ++ error)
+
+        ( _, Just (Err error) ) ->
+            Html.text ("Cannot load store: " ++ error)
+
+        ( _, _ ) ->
+            Html.text "Loading..."
 
 
 viewLoaded : LoadedModel -> Html.Html Msg

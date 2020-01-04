@@ -7,7 +7,7 @@ Bodybuilding tracker progressive web app.
 In the dev container:
 
 ```bash
-elm make src/Main.elm --output=output/index.html
-cd output
+elm make src/Main.elm --output=app/main.js
+cd app/
 ws --spa index.html
 ```

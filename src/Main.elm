@@ -10,11 +10,14 @@ import Form.Error
 import Html
 import Html.Attributes
 import Html.Events
+import Json.Decode
+import Json.Encode
 import Random
+import Route exposing (Route(..), parseRoute)
+import Storage exposing (Store)
 import Task
 import Time
 import Url
-import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
 
 
 main : Program () Model Msg
@@ -41,13 +44,21 @@ type Model
 type alias LoadingModel =
     { key : Nav.Key
     , url : Url.Url
+    , seed : LoadingValue String Random.Seed
+    , store : LoadingValue String Store
     }
+
+
+type LoadingValue error value
+    = LoadingValue
+    | LoadedValue value
+    | LoadingError error
 
 
 type alias LoadedModel =
     { key : Nav.Key
     , url : Url.Url
-    , exercises : List Exercise
+    , store : Store
     , route : Route
     , seed : Random.Seed
     }
@@ -55,40 +66,22 @@ type alias LoadedModel =
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Loading { key = key, url = url }
-    , Task.perform CreateSeed Time.now
+    ( Loading { key = key, url = url, seed = LoadingValue, store = LoadingValue }
+    , Cmd.batch
+        [ requestTimeForSeed
+        , requestStorage
+        ]
     )
 
 
-
--- ROUTE
-
-
-type Route
-    = ListExercises
-    | CreateExercise CreateExerciseForm.Form
-    | DeleteExercise Exercise.Id
-    | NotFound
+requestTimeForSeed : Cmd Msg
+requestTimeForSeed =
+    Task.perform CreateSeed Time.now
 
 
-routeParser : Parser (Route -> a) a
-routeParser =
-    oneOf
-        [ map ListExercises top
-        , map ListExercises (s "exercises")
-        , map (CreateExercise CreateExerciseForm.init) (s "exercises" </> s "create")
-        , map DeleteExercise (s "exercises" </> s "delete" </> custom "exerciseId" Exercise.idFromString)
-        ]
-
-
-parseRoute : Url.Url -> Route
-parseRoute url =
-    case parse routeParser url of
-        Just route ->
-            route
-
-        Nothing ->
-            NotFound
+requestStorage : Cmd Msg
+requestStorage =
+    Storage.request ()
 
 
 
@@ -99,111 +92,224 @@ type Msg
     = UrlRequested Browser.UrlRequest
     | UrlChanged Url.Url
     | CreateSeed Time.Posix
+    | ReceiveStore Json.Encode.Value
     | CreateExerciseMsg CreateExerciseForm.Msg
     | CancelCreateExercise
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
+updateLoading msg model =
     case msg of
         UrlRequested urlRequest ->
-            case model of
-                Loading loading ->
-                    case urlRequest of
-                        Browser.Internal url ->
-                            ( Loading loading, Nav.pushUrl loading.key (Url.toString url) )
-
-                        Browser.External href ->
-                            ( Loading loading, Nav.load href )
-
-                Loaded loaded ->
-                    case urlRequest of
-                        Browser.Internal url ->
-                            ( Loaded loaded, Nav.pushUrl loaded.key (Url.toString url) )
-
-                        Browser.External href ->
-                            ( Loaded loaded, Nav.load href )
+            updateUrlRequested urlRequest (Loading model) model.key
 
         UrlChanged url ->
-            case model of
-                Loading loading ->
-                    ( Loading { loading | url = url }, Cmd.none )
+            ( Loading { model | url = url }, Cmd.none )
 
-                Loaded loaded ->
+        CreateSeed time ->
+            let
+                updatedModel =
+                    { model | seed = LoadedValue (Random.initialSeed (Time.posixToMillis time)) }
+
+                maybeLoaded =
+                    loadingToLoaded updatedModel
+            in
+            case maybeLoaded of
+                Just loaded ->
+                    ( Loaded loaded
+                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    )
+
+                Nothing ->
+                    ( Loading updatedModel, Cmd.none )
+
+        ReceiveStore jsonValue ->
+            let
+                resultStore =
+                    Json.Decode.decodeValue Storage.decoder jsonValue
+
+                resultNull =
+                    Json.Decode.decodeValue (Json.Decode.null True) jsonValue
+
+                updateAndTryLoading store =
                     let
-                        route =
-                            parseRoute url
+                        updatedModel =
+                            { model | store = LoadedValue store }
+
+                        maybeLoaded =
+                            loadingToLoaded updatedModel
                     in
-                    case route of
-                        DeleteExercise id ->
+                    case maybeLoaded of
+                        Just loaded ->
+                            ( Loaded loaded
+                            , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                            )
+
+                        Nothing ->
+                            ( Loading updatedModel, Cmd.none )
+            in
+            case ( resultStore, resultNull ) of
+                ( Ok store, _ ) ->
+                    updateAndTryLoading store
+
+                ( _, Ok _ ) ->
+                    updateAndTryLoading Storage.init
+
+                ( Err error, _ ) ->
+                    ( Loading { model | store = LoadingError (Json.Decode.errorToString error) }
+                    , Cmd.none
+                    )
+
+        -- TODO: log error
+        CreateExerciseMsg _ ->
+            ( Loading model, Cmd.none )
+
+        -- TODO: log error
+        CancelCreateExercise ->
+            ( Loading model, Cmd.none )
+
+
+updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
+updateLoaded msg model =
+    case msg of
+        UrlRequested urlRequest ->
+            updateUrlRequested urlRequest (Loaded model) model.key
+
+        UrlChanged url ->
+            let
+                route =
+                    parseRoute url
+            in
+            case route of
+                DeleteExercise id ->
+                    let
+                        existingExercises =
+                            Storage.getExercises model.store
+
+                        filteredExercises =
+                            List.filter (\exercise -> exercise.id /= id) existingExercises
+
+                        newStore =
+                            Storage.setExercises filteredExercises model.store
+                    in
+                    ( Loaded
+                        { model
+                            | url = url
+                            , route = route
+                            , store = newStore
+                        }
+                    , Cmd.batch
+                        [ Storage.save newStore
+                        , Nav.pushUrl model.key "/exercises"
+                        ]
+                    )
+
+                _ ->
+                    ( Loaded { model | url = url, route = route }, Cmd.none )
+
+        CreateExerciseMsg formMsg ->
+            case model.route of
+                CreateExercise form ->
+                    let
+                        newRoute =
+                            CreateExercise (CreateExerciseForm.update formMsg form)
+                    in
+                    case ( formMsg, CreateExerciseForm.getOutput form model.seed ) of
+                        ( Form.Submit, Just tuple ) ->
+                            let
+                                newStore =
+                                    Storage.setExercises (Tuple.first tuple :: Storage.getExercises model.store) model.store
+                            in
                             ( Loaded
-                                { loaded
-                                    | url = url
-                                    , route = route
-                                    , exercises = List.filter (\exercise -> exercise.id /= id) loaded.exercises
+                                { model
+                                    | store = newStore
+                                    , seed = Tuple.second tuple
                                 }
-                            , Nav.pushUrl loaded.key "/exercises"
+                            , Cmd.batch
+                                [ Storage.save newStore
+                                , Nav.pushUrl model.key "/exercises"
+                                ]
                             )
 
                         _ ->
-                            ( Loaded { loaded | url = url, route = route }, Cmd.none )
+                            ( Loaded { model | route = newRoute }, Cmd.none )
 
-        CreateExerciseMsg formMsg ->
-            case model of
-                Loading loading ->
-                    ( Loading loading, Cmd.none )
-
-                Loaded loaded ->
-                    case loaded.route of
-                        CreateExercise form ->
-                            let
-                                newRoute =
-                                    CreateExercise (CreateExerciseForm.update formMsg form)
-                            in
-                            case ( formMsg, CreateExerciseForm.getOutput form loaded.seed ) of
-                                ( Form.Submit, Just tuple ) ->
-                                    ( Loaded
-                                        { loaded
-                                            | exercises = Tuple.first tuple :: loaded.exercises
-                                            , seed = Tuple.second tuple
-                                        }
-                                    , Nav.pushUrl loaded.key "/exercises"
-                                    )
-
-                                _ ->
-                                    ( Loaded { loaded | route = newRoute }, Cmd.none )
-
-                        _ ->
-                            ( Loaded loaded, Cmd.none )
+                _ ->
+                    ( Loaded model, Cmd.none )
 
         CancelCreateExercise ->
-            case model of
-                Loading loading ->
-                    ( Loading loading, Cmd.none )
+            ( Loaded model, Nav.pushUrl model.key "/exercises" )
 
-                Loaded loaded ->
-                    ( Loaded loaded, Nav.pushUrl loaded.key "/exercises" )
+        -- TODO: log error
+        CreateSeed _ ->
+            ( Loaded model, Cmd.none )
 
-        CreateSeed time ->
-            case model of
-                Loading loading ->
-                    ( Loaded
-                        { key = loading.key
-                        , url = loading.url
-                        , exercises = []
-                        , route = parseRoute loading.url
-                        , seed = Random.initialSeed (Time.posixToMillis time)
-                        }
-                    , Nav.pushUrl loading.key (Url.toString loading.url)
+        ReceiveStore jsonValue ->
+            let
+                resultStore =
+                    Json.Decode.decodeValue Storage.decoder jsonValue
+            in
+            case resultStore of
+                Ok store ->
+                    ( Loaded { model | store = store }
+                    , Cmd.none
                     )
 
-                Loaded loaded ->
-                    ( Loaded loaded, Cmd.none )
+                Err error ->
+                    let
+                        -- TODO: log error
+                        _ =
+                            Debug.log (Json.Decode.errorToString error)
+                    in
+                    ( Loaded model, Cmd.none )
+
+
+updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
+updateUrlRequested urlRequest model key =
+    case urlRequest of
+        Browser.Internal url ->
+            ( model, Nav.pushUrl key (Url.toString url) )
+
+        Browser.External href ->
+            ( model, Nav.load href )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case model of
+        Loading loading ->
+            updateLoading msg loading
+
+        Loaded loaded ->
+            updateLoaded msg loaded
+
+
+loadingToLoaded : LoadingModel -> Maybe LoadedModel
+loadingToLoaded loading =
+    let
+        maybeSeed =
+            loading.seed
+
+        maybeStore =
+            loading.store
+    in
+    case ( maybeSeed, maybeStore ) of
+        ( LoadedValue seed, LoadedValue store ) ->
+            Just
+                { key = loading.key
+                , url = loading.url
+                , store = store
+                , route = parseRoute loading.url
+                , seed = seed
+                }
+
+        _ ->
+            Nothing
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Storage.receive ReceiveStore
 
 
 
@@ -215,13 +321,26 @@ view model =
     { title = "Steroids"
     , body =
         [ case model of
-            Loading _ ->
-                Html.text "Loading..."
+            Loading loadingModel ->
+                viewLoading loadingModel
 
             Loaded loadedModel ->
                 viewLoaded loadedModel
         ]
     }
+
+
+viewLoading : LoadingModel -> Html.Html Msg
+viewLoading model =
+    case ( model.seed, model.store ) of
+        ( LoadingError error, _ ) ->
+            Html.text ("Cannot load seed: " ++ error)
+
+        ( _, LoadingError error ) ->
+            Html.text ("Cannot load store: " ++ error)
+
+        ( _, _ ) ->
+            Html.text "Loading..."
 
 
 viewLoaded : LoadedModel -> Html.Html Msg
@@ -231,7 +350,7 @@ viewLoaded model =
             viewNotFound
 
         ListExercises ->
-            viewListExercises model.exercises
+            viewListExercises (Storage.getExercises model.store)
 
         CreateExercise form ->
             viewCreateExercise form

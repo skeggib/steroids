@@ -44,11 +44,15 @@ type Model
 type alias LoadingModel =
     { key : Nav.Key
     , url : Url.Url
-
-    -- TODO: Maybe Result a -> LoadingValue a
-    , seed : Maybe (Result String Random.Seed)
-    , store : Maybe (Result String Store)
+    , seed : LoadingValue String Random.Seed
+    , store : LoadingValue String Store
     }
+
+
+type LoadingValue error value
+    = LoadingValue
+    | LoadedValue value
+    | LoadingError error
 
 
 type alias LoadedModel =
@@ -62,7 +66,7 @@ type alias LoadedModel =
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Loading { key = key, url = url, seed = Nothing, store = Nothing }
+    ( Loading { key = key, url = url, seed = LoadingValue, store = LoadingValue }
     , Cmd.batch
         [ requestTimeForSeed
         , requestStorage
@@ -105,7 +109,7 @@ updateLoading msg model =
         CreateSeed time ->
             let
                 updatedModel =
-                    { model | seed = Just (Ok (Random.initialSeed (Time.posixToMillis time))) }
+                    { model | seed = LoadedValue (Random.initialSeed (Time.posixToMillis time)) }
 
                 maybeLoaded =
                     loadingToLoaded updatedModel
@@ -130,7 +134,7 @@ updateLoading msg model =
                 updateAndTryLoading store =
                     let
                         updatedModel =
-                            { model | store = Just (Ok store) }
+                            { model | store = LoadedValue store }
 
                         maybeLoaded =
                             loadingToLoaded updatedModel
@@ -152,7 +156,7 @@ updateLoading msg model =
                     updateAndTryLoading Storage.init
 
                 ( Err error, _ ) ->
-                    ( Loading { model | store = Just (Err (Json.Decode.errorToString error)) }
+                    ( Loading { model | store = LoadingError (Json.Decode.errorToString error) }
                     , Cmd.none
                     )
 
@@ -290,7 +294,7 @@ loadingToLoaded loading =
             loading.store
     in
     case ( maybeSeed, maybeStore ) of
-        ( Just (Ok seed), Just (Ok store) ) ->
+        ( LoadedValue seed, LoadedValue store ) ->
             Just
                 { key = loading.key
                 , url = loading.url
@@ -329,10 +333,10 @@ view model =
 viewLoading : LoadingModel -> Html.Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
-        ( Just (Err error), _ ) ->
+        ( LoadingError error, _ ) ->
             Html.text ("Cannot load seed: " ++ error)
 
-        ( _, Just (Err error) ) ->
+        ( _, LoadingError error ) ->
             Html.text ("Cannot load store: " ++ error)
 
         ( _, _ ) ->

@@ -62,6 +62,7 @@ type alias LoadedModel =
     { key : Nav.Key
     , url : Url.Url
     , route : Route
+    , createExerciseForm : CreateExerciseForm.Form
     , store : Store
     , seed : Random.Seed
     , today : Date
@@ -232,6 +233,16 @@ updateLoaded msg model =
                         ]
                     )
 
+                CreateExercise ->
+                    ( Loaded
+                        { model
+                            | createExerciseForm = CreateExerciseForm.init
+                            , url = url
+                            , route = route
+                        }
+                    , Cmd.none
+                    )
+
                 _ ->
                     ( Loaded { model | url = url, route = route }, Cmd.none )
 
@@ -265,12 +276,12 @@ updateLoaded msg model =
 
         CreateExerciseMsg formMsg ->
             case model.route of
-                CreateExercise form ->
+                CreateExercise ->
                     let
-                        newRoute =
-                            CreateExercise (CreateExerciseForm.update formMsg form)
+                        newForm =
+                            CreateExerciseForm.update formMsg model.createExerciseForm
                     in
-                    case ( formMsg, CreateExerciseForm.getOutput form model.seed ) of
+                    case ( formMsg, CreateExerciseForm.getOutput newForm model.seed ) of
                         ( Form.Submit, Just tuple ) ->
                             let
                                 newStore =
@@ -288,7 +299,7 @@ updateLoaded msg model =
                             )
 
                         _ ->
-                            ( Loaded { model | route = newRoute }, Cmd.none )
+                            ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
 
                 _ ->
                     ( Loaded model, Cmd.none )
@@ -325,6 +336,7 @@ loadingToLoaded loading =
                 { key = loading.key
                 , url = loading.url
                 , route = parseRoute loading.url
+                , createExerciseForm = CreateExerciseForm.init
                 , store = store
                 , seed = seed
                 , today = today
@@ -382,8 +394,8 @@ viewLoaded model =
         ListPastDays ->
             viewPastDays model.today (Storage.getExercises model.store)
 
-        CreateExercise form ->
-            viewCreateExercise form
+        CreateExercise ->
+            viewCreateExercise model.createExerciseForm
 
         DeleteExercise id ->
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")

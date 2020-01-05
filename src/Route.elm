@@ -1,6 +1,5 @@
 module Route exposing (Route(..), parseRoute)
 
-import CreateExerciseForm
 import Date exposing (Date)
 import Exercise
 import Url exposing (Url)
@@ -10,7 +9,7 @@ import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
 type Route
     = ListNextDays
     | ListPastDays
-    | CreateExercise CreateExerciseForm.Form
+    | CreateExercise
     | DeleteExercise Exercise.Id
     | ShowDay Date
     | NotFound
@@ -21,7 +20,7 @@ routeParser =
     oneOf
         [ map ListNextDays top
         , map ListPastDays (s "past")
-        , map (CreateExercise CreateExerciseForm.init) (s "exercises" </> s "create")
+        , map CreateExercise (s "exercises" </> s "create")
         , map DeleteExercise (s "exercises" </> s "delete" </> custom "exerciseId" Exercise.idFromString)
         , map ShowDay (s "day" </> custom "date" dateFromString)
         ]

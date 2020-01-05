@@ -34,7 +34,7 @@ encode exercise =
         , ( "name", Json.Encode.string exercise.name )
         , ( "setsNumber", Json.Encode.int exercise.setsNumber )
         , ( "repetitionsNumber", Json.Encode.int exercise.repetitionsNumber )
-        , ( "date", Json.Encode.string (Date.toString exercise.date) )
+        , ( "date", Json.Encode.string (Date.toIsoString exercise.date) )
         ]
 
 
@@ -57,7 +57,7 @@ dateDecoder =
     string
         |> andThen
             (\dateString ->
-                case Date.fromString dateString of
+                case Date.fromIsoString dateString of
                     Ok date ->
                         succeed date
 

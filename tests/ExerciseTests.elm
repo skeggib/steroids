@@ -6,6 +6,7 @@ import Expect
 import Json.Decode
 import Random
 import Test exposing (Test, describe, test)
+import Time
 
 
 suite : Test
@@ -15,55 +16,36 @@ suite =
             [ test "an encoded exercise can be decoded" <|
                 \_ ->
                     let
-                        resultDate =
-                            Date.createDate 30 3 2012
+                        date =
+                            Date.fromCalendarDate 30 Time.Mar 2012
 
                         id =
                             Exercise.createId (Random.initialSeed 0)
 
-                        resultExercise =
-                            case resultDate of
-                                Ok date ->
-                                    Ok
-                                        { id = Tuple.first id
-                                        , name = "test"
-                                        , setsNumber = 5
-                                        , repetitionsNumber = 10
-                                        , date = date
-                                        }
+                        exercise =
+                            { id = Tuple.first id
+                            , name = "test"
+                            , setsNumber = 5
+                            , repetitionsNumber = 10
+                            , date = date
+                            }
 
-                                Err error ->
-                                    Err error
-
-                        resultEncoded =
-                            case resultExercise of
-                                Ok exercise ->
-                                    Ok (Exercise.encode exercise)
-
-                                Err error ->
-                                    Err error
+                        encoded =
+                            Exercise.encode exercise
 
                         resultDecoded =
-                            case resultEncoded of
-                                Ok encoded ->
-                                    case Json.Decode.decodeValue Exercise.decoder encoded of
-                                        Ok decoded ->
-                                            Ok decoded
-
-                                        Err error ->
-                                            Err (Json.Decode.errorToString error)
+                            case Json.Decode.decodeValue Exercise.decoder encoded of
+                                Ok decoded ->
+                                    Ok decoded
 
                                 Err error ->
-                                    Err error
+                                    Err (Json.Decode.errorToString error)
                     in
-                    case ( resultExercise, resultDecoded ) of
-                        ( Ok exercise, Ok decoded ) ->
+                    case resultDecoded of
+                        Ok decoded ->
                             Expect.equal exercise decoded
 
-                        ( Err _, _ ) ->
-                            Expect.fail "could not create the exercise"
-
-                        ( _, Err error ) ->
+                        Err error ->
                             Expect.fail error
             ]
         ]

@@ -7,6 +7,7 @@ import Json.Decode
 import Random
 import Storage
 import Test exposing (Test, describe, test)
+import Time
 
 
 suite : Test
@@ -16,63 +17,39 @@ suite =
             [ test "an encoded store can be decoded" <|
                 \_ ->
                     let
-                        resultDate =
-                            Date.createDate 30 3 2012
+                        date =
+                            Date.fromCalendarDate 30 Time.Mar 2012
 
                         id =
                             Exercise.createId (Random.initialSeed 0)
 
-                        resultExercise =
-                            case resultDate of
-                                Ok date ->
-                                    Ok
-                                        { id = Tuple.first id
-                                        , name = "test"
-                                        , setsNumber = 5
-                                        , repetitionsNumber = 10
-                                        , date = date
-                                        }
+                        exercise =
+                            { id = Tuple.first id
+                            , name = "test"
+                            , setsNumber = 5
+                            , repetitionsNumber = 10
+                            , date = date
+                            }
 
-                                Err error ->
-                                    Err error
+                        store =
+                            Storage.setExercises [ exercise ] Storage.init
 
-                        resultStore =
-                            case resultExercise of
-                                Ok exercise ->
-                                    Ok (Storage.setExercises [ exercise ] Storage.init)
-
-                                Err error ->
-                                    Err error
-
-                        resultEncoded =
-                            case resultStore of
-                                Ok store ->
-                                    Ok (Storage.encode store)
-
-                                Err error ->
-                                    Err error
+                        encoded =
+                            Storage.encode store
 
                         resultDecoded =
-                            case resultEncoded of
-                                Ok encoded ->
-                                    case Json.Decode.decodeValue Storage.decoder encoded of
-                                        Ok decoded ->
-                                            Ok decoded
-
-                                        Err error ->
-                                            Err (Json.Decode.errorToString error)
+                            case Json.Decode.decodeValue Storage.decoder encoded of
+                                Ok decoded ->
+                                    Ok decoded
 
                                 Err error ->
-                                    Err error
+                                    Err (Json.Decode.errorToString error)
                     in
-                    case ( resultStore, resultDecoded ) of
-                        ( Ok store, Ok decoded ) ->
+                    case resultDecoded of
+                        Ok decoded ->
                             Expect.equal store decoded
 
-                        ( Err _, _ ) ->
-                            Expect.fail "could not create the store"
-
-                        ( _, Err error ) ->
+                        Err error ->
                             Expect.fail error
             ]
         ]

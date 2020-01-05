@@ -368,7 +368,7 @@ viewNotFound =
 
 groupExercisesByDay : List Exercise -> Dict Int (List Exercise)
 groupExercisesByDay exercises =
-    Dict.Extra.groupBy (\exercise -> Date.toComparable exercise.date) exercises
+    Dict.Extra.groupBy (\exercise -> Date.toRataDie exercise.date) exercises
 
 
 viewListExercises : List Exercise -> Html Msg
@@ -390,7 +390,7 @@ viewDay : ( Int, List Exercise ) -> Html Msg
 viewDay ( day, exercises ) =
     Html.div []
         (List.append
-            [ Html.text (String.fromInt day) ]
+            [ Html.text (Date.toIsoString (Date.fromRataDie day)) ]
             (List.map viewExercise exercises)
         )
 

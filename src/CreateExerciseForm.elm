@@ -69,7 +69,7 @@ validateDate field =
                 Err (value Empty)
 
             else
-                case Date.fromString dateStr of
+                case Date.fromIsoString dateStr of
                     Ok date ->
                         Ok date
 

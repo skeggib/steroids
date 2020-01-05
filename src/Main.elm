@@ -46,8 +46,9 @@ type Model
 type alias LoadingModel =
     { key : Nav.Key
     , url : Url.Url
-    , seed : LoadingValue String Random.Seed
     , store : LoadingValue String Store
+    , seed : LoadingValue Never Random.Seed
+    , today : LoadingValue Never Date
     }
 
 
@@ -60,20 +61,27 @@ type LoadingValue error value
 type alias LoadedModel =
     { key : Nav.Key
     , url : Url.Url
-    , store : Store
     , route : Route
+    , store : Store
     , seed : Random.Seed
+    , today : Date
     }
 
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Loading { key = key, url = url, seed = LoadingValue, store = LoadingValue }
+    ( Loading { key = key, url = url, seed = LoadingValue, store = LoadingValue, today = LoadingValue }
     , Cmd.batch
-        [ requestTimeForSeed
-        , requestStorage
+        [ requestStorage
+        , requestTimeForSeed
+        , requestToday
         ]
     )
+
+
+requestStorage : Cmd Msg
+requestStorage =
+    Storage.request ()
 
 
 requestTimeForSeed : Cmd Msg
@@ -81,9 +89,9 @@ requestTimeForSeed =
     Task.perform CreateSeed Time.now
 
 
-requestStorage : Cmd Msg
-requestStorage =
-    Storage.request ()
+requestToday : Cmd Msg
+requestToday =
+    Task.perform ReceiveToday Date.today
 
 
 
@@ -93,8 +101,9 @@ requestStorage =
 type Msg
     = UrlRequested Browser.UrlRequest
     | UrlChanged Url.Url
-    | CreateSeed Time.Posix
     | ReceiveStore Json.Encode.Value
+    | CreateSeed Time.Posix
+    | ReceiveToday Date
     | CreateExerciseMsg CreateExerciseForm.Msg
     | CancelCreateExercise
 
@@ -107,23 +116,6 @@ updateLoading msg model =
 
         UrlChanged url ->
             ( Loading { model | url = url }, Cmd.none )
-
-        CreateSeed time ->
-            let
-                updatedModel =
-                    { model | seed = LoadedValue (Random.initialSeed (Time.posixToMillis time)) }
-
-                maybeLoaded =
-                    loadingToLoaded updatedModel
-            in
-            case maybeLoaded of
-                Just loaded ->
-                    ( Loaded loaded
-                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
-                    )
-
-                Nothing ->
-                    ( Loading updatedModel, Cmd.none )
 
         ReceiveStore jsonValue ->
             let
@@ -161,6 +153,40 @@ updateLoading msg model =
                     ( Loading { model | store = LoadingError (Json.Decode.errorToString error) }
                     , Cmd.none
                     )
+
+        CreateSeed time ->
+            let
+                updatedModel =
+                    { model | seed = LoadedValue (Random.initialSeed (Time.posixToMillis time)) }
+
+                maybeLoaded =
+                    loadingToLoaded updatedModel
+            in
+            case maybeLoaded of
+                Just loaded ->
+                    ( Loaded loaded
+                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    )
+
+                Nothing ->
+                    ( Loading updatedModel, Cmd.none )
+
+        ReceiveToday today ->
+            let
+                updatedModel =
+                    { model | today = LoadedValue today }
+
+                maybeLoaded =
+                    loadingToLoaded updatedModel
+            in
+            case maybeLoaded of
+                Just loaded ->
+                    ( Loaded loaded
+                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    )
+
+                Nothing ->
+                    ( Loading updatedModel, Cmd.none )
 
         -- TODO: log error
         CreateExerciseMsg _ ->
@@ -202,12 +228,40 @@ updateLoaded msg model =
                         }
                     , Cmd.batch
                         [ Storage.save newStore
-                        , Nav.pushUrl model.key "/exercises"
+                        , Nav.pushUrl model.key "/"
                         ]
                     )
 
                 _ ->
                     ( Loaded { model | url = url, route = route }, Cmd.none )
+
+        ReceiveStore jsonValue ->
+            let
+                resultStore =
+                    Json.Decode.decodeValue Storage.decoder jsonValue
+            in
+            case resultStore of
+                Ok store ->
+                    ( Loaded { model | store = store }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    let
+                        -- TODO: log error
+                        _ =
+                            Debug.log (Json.Decode.errorToString error)
+                    in
+                    ( Loaded model, Cmd.none )
+
+        -- TODO: log error
+        CreateSeed _ ->
+            ( Loaded model, Cmd.none )
+
+        ReceiveToday today ->
+            ( Loaded { model | today = today }
+            , Cmd.none
+            )
 
         CreateExerciseMsg formMsg ->
             case model.route of
@@ -229,7 +283,7 @@ updateLoaded msg model =
                                 }
                             , Cmd.batch
                                 [ Storage.save newStore
-                                , Nav.pushUrl model.key "/exercises"
+                                , Nav.pushUrl model.key "/"
                                 ]
                             )
 
@@ -240,30 +294,7 @@ updateLoaded msg model =
                     ( Loaded model, Cmd.none )
 
         CancelCreateExercise ->
-            ( Loaded model, Nav.pushUrl model.key "/exercises" )
-
-        -- TODO: log error
-        CreateSeed _ ->
-            ( Loaded model, Cmd.none )
-
-        ReceiveStore jsonValue ->
-            let
-                resultStore =
-                    Json.Decode.decodeValue Storage.decoder jsonValue
-            in
-            case resultStore of
-                Ok store ->
-                    ( Loaded { model | store = store }
-                    , Cmd.none
-                    )
-
-                Err error ->
-                    let
-                        -- TODO: log error
-                        _ =
-                            Debug.log (Json.Decode.errorToString error)
-                    in
-                    ( Loaded model, Cmd.none )
+            ( Loaded model, Nav.pushUrl model.key "/" )
 
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
@@ -288,21 +319,15 @@ update msg model =
 
 loadingToLoaded : LoadingModel -> Maybe LoadedModel
 loadingToLoaded loading =
-    let
-        maybeSeed =
-            loading.seed
-
-        maybeStore =
-            loading.store
-    in
-    case ( maybeSeed, maybeStore ) of
-        ( LoadedValue seed, LoadedValue store ) ->
+    case ( loading.seed, loading.store, loading.today ) of
+        ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
                 { key = loading.key
                 , url = loading.url
-                , store = store
                 , route = parseRoute loading.url
+                , store = store
                 , seed = seed
+                , today = today
                 }
 
         _ ->
@@ -336,7 +361,7 @@ viewLoading : LoadingModel -> Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
         ( LoadingError error, _ ) ->
-            Html.text ("Cannot load seed: " ++ error)
+            Html.text "Cannot load seed"
 
         ( _, LoadingError error ) ->
             Html.text ("Cannot load store: " ++ error)
@@ -351,8 +376,11 @@ viewLoaded model =
         NotFound ->
             viewNotFound
 
-        ListExercises ->
-            viewListExercises (Storage.getExercises model.store)
+        ListNextDays ->
+            viewNextDays model.today (Storage.getExercises model.store)
+
+        ListPastDays ->
+            viewPastDays model.today (Storage.getExercises model.store)
 
         CreateExercise form ->
             viewCreateExercise form
@@ -374,16 +402,44 @@ groupExercisesByDay exercises =
     Dict.Extra.groupBy (\exercise -> Date.toRataDie exercise.date) exercises
 
 
-viewListExercises : List Exercise -> Html Msg
-viewListExercises exercises =
+viewNextDays : Date -> List Exercise -> Html Msg
+viewNextDays today exercises =
     let
+        todayRataDie =
+            Date.toRataDie today
+
+        nextExercises =
+            List.filter (\exercise -> Date.toRataDie exercise.date >= todayRataDie) exercises
+
         groups =
-            Dict.toList (groupExercisesByDay exercises)
+            Dict.toList (groupExercisesByDay nextExercises)
     in
     Html.div []
         (List.append
-            [ Html.div [] [ Html.text "Exercises list" ]
+            [ Html.div [] [ Html.text "Exercises" ]
             , Html.div [] [ Html.a [ Html.Attributes.href "/exercises/create" ] [ Html.text "Create an exercise" ] ]
+            , Html.div [] [ Html.a [ Html.Attributes.href "/past" ] [ Html.text "View past exercises" ] ]
+            ]
+            (List.map viewDayLink groups)
+        )
+
+
+viewPastDays : Date -> List Exercise -> Html Msg
+viewPastDays today exercises =
+    let
+        todayRataDie =
+            Date.toRataDie today
+
+        nextExercises =
+            List.filter (\exercise -> Date.toRataDie exercise.date < todayRataDie) exercises
+
+        groups =
+            List.reverse (Dict.toList (groupExercisesByDay nextExercises))
+    in
+    Html.div []
+        (List.append
+            [ Html.div [] [ Html.text "Past exercises" ]
+            , Html.a [ Html.Attributes.href "/" ] [ Html.text "Go back to exercises list" ]
             ]
             (List.map viewDayLink groups)
         )
@@ -442,7 +498,6 @@ viewDay date exercises =
              else
                 List.map viewExercise filteredExercises
             )
-        , Html.a [ Html.Attributes.href "/exercises" ] [ Html.text "Go back to exercises list" ]
         ]
 
 

@@ -8,7 +8,8 @@ import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
 
 
 type Route
-    = ListExercises
+    = ListNextDays
+    | ListPastDays
     | CreateExercise CreateExerciseForm.Form
     | DeleteExercise Exercise.Id
     | ShowDay Date
@@ -18,7 +19,8 @@ type Route
 routeParser : Parser (Route -> a) a
 routeParser =
     oneOf
-        [ map ListExercises top
+        [ map ListNextDays top
+        , map ListPastDays (s "past")
         , map (CreateExercise CreateExerciseForm.init) (s "exercises" </> s "create")
         , map DeleteExercise (s "exercises" </> s "delete" </> custom "exerciseId" Exercise.idFromString)
         , map ShowDay (s "day" </> custom "date" dateFromString)

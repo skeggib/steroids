@@ -19,7 +19,6 @@ routeParser : Parser (Route -> a) a
 routeParser =
     oneOf
         [ map ListExercises top
-        , map ListExercises (s "exercises")
         , map (CreateExercise CreateExerciseForm.init) (s "exercises" </> s "create")
         , map DeleteExercise (s "exercises" </> s "delete" </> custom "exerciseId" Exercise.idFromString)
         , map ShowDay (s "day" </> custom "date" dateFromString)

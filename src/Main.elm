@@ -360,6 +360,9 @@ viewLoaded model =
         DeleteExercise id ->
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
 
+        ShowDay date ->
+            viewDay date (Storage.getExercises model.store)
+
 
 viewNotFound : Html Msg
 viewNotFound =
@@ -382,17 +385,19 @@ viewListExercises exercises =
             [ Html.div [] [ Html.text "Exercises list" ]
             , Html.div [] [ Html.a [ Html.Attributes.href "/exercises/create" ] [ Html.text "Create an exercise" ] ]
             ]
-            (List.map viewDay groups)
+            (List.map viewDayLink groups)
         )
 
 
-viewDay : ( Int, List Exercise ) -> Html Msg
-viewDay ( day, exercises ) =
+viewDayLink : ( Int, List Exercise ) -> Html Msg
+viewDayLink ( day, exercises ) =
+    let
+        dateStr =
+            Date.toIsoString (Date.fromRataDie day)
+    in
     Html.div []
-        (List.append
-            [ Html.text (Date.toIsoString (Date.fromRataDie day)) ]
-            (List.map viewExercise exercises)
-        )
+        [ Html.a [ Html.Attributes.href ("/day/" ++ dateStr) ] [ Html.text (dateStr ++ " (" ++ String.fromInt (List.length exercises) ++ ")") ]
+        ]
 
 
 viewExercise : Exercise -> Html Msg
@@ -406,7 +411,7 @@ viewExercise exercise =
                 ++ String.fromInt exercise.repetitionsNumber
                 ++ " repetitions)"
             )
-        , Html.a [ Html.Attributes.href ("exercises/delete/" ++ Exercise.idToString exercise.id) ] [ Html.text "Delete" ]
+        , Html.a [ Html.Attributes.href ("/exercises/delete/" ++ Exercise.idToString exercise.id) ] [ Html.text "Delete" ]
         ]
 
 
@@ -419,6 +424,25 @@ viewCreateExercise form =
                 [ Html.Events.onClick CancelCreateExercise ]
                 [ Html.text "Cancel" ]
             ]
+        ]
+
+
+viewDay : Date -> List Exercise -> Html Msg
+viewDay date exercises =
+    let
+        filteredExercises =
+            List.filter (\exercise -> exercise.date == date) exercises
+    in
+    Html.div []
+        [ Html.text (Date.toIsoString date)
+        , Html.div []
+            (if List.length filteredExercises == 0 then
+                [ Html.text "No exercises" ]
+
+             else
+                List.map viewExercise filteredExercises
+            )
+        , Html.a [ Html.Attributes.href "/exercises" ] [ Html.text "Go back to exercises list" ]
         ]
 
 

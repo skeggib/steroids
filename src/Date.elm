@@ -1,4 +1,4 @@
-module Date exposing (Date, createDate, fromString, getDay, getMonth, getYear, toString)
+module Date exposing (Date, createDate, fromString, getDay, getMonth, getYear, toComparable, toString)
 
 import Parser exposing ((|.), (|=), Parser, andThen, chompWhile, end, int, problem, run, succeed, symbol)
 
@@ -120,3 +120,8 @@ getYear date =
     case date of
         Date internalDate ->
             internalDate.year
+
+
+toComparable : Date -> Int
+toComparable date =
+    getYear date * 10000 + getMonth date * 100 + getDay date

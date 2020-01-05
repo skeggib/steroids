@@ -16,6 +16,7 @@
             "elm/random": "1.0.0",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
+            "elm-community/dict-extra": "2.4.0",
             "etaque/elm-form": "4.0.0"
         },
         "indirect": {

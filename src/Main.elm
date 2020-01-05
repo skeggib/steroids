@@ -3,11 +3,13 @@ module Main exposing (main)
 import Browser
 import Browser.Navigation as Nav
 import CreateExerciseForm
-import Date
+import Date exposing (Date)
+import Dict exposing (Dict)
+import Dict.Extra
 import Exercise exposing (Exercise)
 import Form
 import Form.Error
-import Html
+import Html exposing (Html)
 import Html.Attributes
 import Html.Events
 import Json.Decode
@@ -330,7 +332,7 @@ view model =
     }
 
 
-viewLoading : LoadingModel -> Html.Html Msg
+viewLoading : LoadingModel -> Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
         ( LoadingError error, _ ) ->
@@ -343,7 +345,7 @@ viewLoading model =
             Html.text "Loading..."
 
 
-viewLoaded : LoadedModel -> Html.Html Msg
+viewLoaded : LoadedModel -> Html Msg
 viewLoaded model =
     case model.route of
         NotFound ->
@@ -359,18 +361,45 @@ viewLoaded model =
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
 
 
-viewNotFound : Html.Html Msg
+viewNotFound : Html Msg
 viewNotFound =
     Html.text "Not found"
 
 
-viewExercise : Exercise -> Html.Html Msg
+groupExercisesByDay : List Exercise -> Dict Int (List Exercise)
+groupExercisesByDay exercises =
+    Dict.Extra.groupBy (\exercise -> Date.toComparable exercise.date) exercises
+
+
+viewListExercises : List Exercise -> Html Msg
+viewListExercises exercises =
+    let
+        groups =
+            Dict.toList (groupExercisesByDay exercises)
+    in
+    Html.div []
+        (List.append
+            [ Html.div [] [ Html.text "Exercises list" ]
+            , Html.div [] [ Html.a [ Html.Attributes.href "/exercises/create" ] [ Html.text "Create an exercise" ] ]
+            ]
+            (List.map viewDay groups)
+        )
+
+
+viewDay : ( Int, List Exercise ) -> Html Msg
+viewDay ( day, exercises ) =
+    Html.div []
+        (List.append
+            [ Html.text (String.fromInt day) ]
+            (List.map viewExercise exercises)
+        )
+
+
+viewExercise : Exercise -> Html Msg
 viewExercise exercise =
     Html.div []
         [ Html.text
             (exercise.name
-                ++ " "
-                ++ Date.toString exercise.date
                 ++ " ("
                 ++ String.fromInt exercise.setsNumber
                 ++ " sets, "
@@ -381,18 +410,7 @@ viewExercise exercise =
         ]
 
 
-viewListExercises : List Exercise -> Html.Html Msg
-viewListExercises exercises =
-    Html.div []
-        (List.append
-            [ Html.div [] [ Html.text "Exercises list" ]
-            , Html.div [] [ Html.a [ Html.Attributes.href "/exercises/create" ] [ Html.text "Create an exercise" ] ]
-            ]
-            (List.map viewExercise exercises)
-        )
-
-
-viewCreateExercise : CreateExerciseForm.Form -> Html.Html Msg
+viewCreateExercise : CreateExerciseForm.Form -> Html Msg
 viewCreateExercise form =
     Html.div []
         [ Html.map CreateExerciseMsg (CreateExerciseForm.view form createExerciseErrorToString)

@@ -229,7 +229,7 @@ updateLoaded msg model =
                         }
                     , Cmd.batch
                         [ Storage.save newStore
-                        , Nav.pushUrl model.key "/"
+                        , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
                         ]
                     )
 
@@ -294,7 +294,7 @@ updateLoaded msg model =
                                 }
                             , Cmd.batch
                                 [ Storage.save newStore
-                                , Nav.pushUrl model.key "/"
+                                , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
                                 ]
                             )
 
@@ -305,7 +305,7 @@ updateLoaded msg model =
                     ( Loaded model, Cmd.none )
 
         CancelCreateExercise ->
-            ( Loaded model, Nav.pushUrl model.key "/" )
+            ( Loaded model, Nav.pushUrl model.key (Route.toLink Route.ListNextDays) )
 
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
@@ -429,8 +429,8 @@ viewNextDays today exercises =
     Html.div []
         (List.append
             [ Html.div [] [ Html.text "Exercises" ]
-            , Html.div [] [ Html.a [ Html.Attributes.href "/exercises/create" ] [ Html.text "Create an exercise" ] ]
-            , Html.div [] [ Html.a [ Html.Attributes.href "/past" ] [ Html.text "View past exercises" ] ]
+            , Html.div [] [ Html.a [ Html.Attributes.href (Route.toLink Route.CreateExercise) ] [ Html.text "Create an exercise" ] ]
+            , Html.div [] [ Html.a [ Html.Attributes.href (Route.toLink Route.ListPastDays) ] [ Html.text "View past exercises" ] ]
             ]
             (List.map viewDayLink groups)
         )
@@ -451,7 +451,7 @@ viewPastDays today exercises =
     Html.div []
         (List.append
             [ Html.div [] [ Html.text "Past exercises" ]
-            , Html.a [ Html.Attributes.href "/" ] [ Html.text "Go back to exercises list" ]
+            , Html.a [ Html.Attributes.href (Route.toLink Route.ListNextDays) ] [ Html.text "Go back to exercises list" ]
             ]
             (List.map viewDayLink groups)
         )
@@ -460,11 +460,16 @@ viewPastDays today exercises =
 viewDayLink : ( Int, List Exercise ) -> Html Msg
 viewDayLink ( day, exercises ) =
     let
+        date =
+            Date.fromRataDie day
+
         dateStr =
-            Date.toIsoString (Date.fromRataDie day)
+            Date.toIsoString date
     in
     Html.div []
-        [ Html.a [ Html.Attributes.href ("/day/" ++ dateStr) ] [ Html.text (dateStr ++ " (" ++ String.fromInt (List.length exercises) ++ ")") ]
+        [ Html.a
+            [ Html.Attributes.href (Route.ShowDay date |> Route.toLink) ]
+            [ Html.text (dateStr ++ " (" ++ String.fromInt (List.length exercises) ++ ")") ]
         ]
 
 
@@ -479,7 +484,7 @@ viewExercise exercise =
                 ++ String.fromInt exercise.repetitionsNumber
                 ++ " repetitions)"
             )
-        , Html.a [ Html.Attributes.href ("/exercises/delete/" ++ Exercise.idToString exercise.id) ] [ Html.text "Delete" ]
+        , Html.a [ Html.Attributes.href (Route.DeleteExercise exercise.id |> Route.toLink) ] [ Html.text "Delete" ]
         ]
 
 

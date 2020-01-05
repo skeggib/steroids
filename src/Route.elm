@@ -1,4 +1,4 @@
-module Route exposing (Route(..), parseRoute)
+module Route exposing (Route(..), parseRoute, toLink)
 
 import Date exposing (Date)
 import Exercise
@@ -13,6 +13,28 @@ type Route
     | DeleteExercise Exercise.Id
     | ShowDay Date
     | NotFound
+
+
+toLink : Route -> String
+toLink route =
+    case route of
+        ListNextDays ->
+            "/"
+
+        ListPastDays ->
+            "/past"
+
+        CreateExercise ->
+            "/exercises/create"
+
+        DeleteExercise id ->
+            "/exercises/delete/" ++ Exercise.idToString id
+
+        ShowDay date ->
+            "/day/" ++ dateToString date
+
+        NotFound ->
+            "/notfound"
 
 
 routeParser : Parser (Route -> a) a
@@ -34,6 +56,11 @@ dateFromString str =
 
         Err _ ->
             Nothing
+
+
+dateToString : Date -> String
+dateToString date =
+    Date.toIsoString date
 
 
 parseRoute : Url -> Route

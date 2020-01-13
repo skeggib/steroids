@@ -9,10 +9,9 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Exercise exposing (Exercise)
 import Form
-import Form.Error
+import Helpers
 import Html exposing (Html)
 import Html.Attributes
-import Html.Events
 import Json.Decode
 import Json.Encode
 import Random
@@ -21,6 +20,7 @@ import Storage exposing (Store)
 import Task
 import Time
 import Url
+import Words exposing (plural, words)
 
 
 main : Program () Model Msg
@@ -189,9 +189,8 @@ updateLoading msg model =
                 Nothing ->
                     ( Loading updatedModel, Cmd.none )
 
-        -- TODO: log error
         CreateExerciseMsg _ ->
-            ( Loading model, Cmd.none )
+            Debug.log "CreateExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
 
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
@@ -255,15 +254,13 @@ updateLoaded msg model =
 
                 Err error ->
                     let
-                        -- TODO: log error
                         _ =
                             Debug.log (Json.Decode.errorToString error)
                     in
                     ( Loaded model, Cmd.none )
 
-        -- TODO: log error
         CreateSeed _ ->
-            ( Loaded model, Cmd.none )
+            Debug.log "CreateSeed should not be called in the loaded model" ( Loaded model, Cmd.none )
 
         ReceiveToday today ->
             ( Loaded { model | today = today }
@@ -370,7 +367,7 @@ view model =
 viewLoading : LoadingModel -> Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
-        ( LoadingError error, _ ) ->
+        ( LoadingError _, _ ) ->
             Html.text "Cannot load seed"
 
         ( _, LoadingError error ) ->
@@ -503,7 +500,7 @@ viewDayLink : ( Date, List Exercise ) -> Html Msg
 viewDayLink ( date, exercises ) =
     let
         dateStr =
-            dateToLongString date
+            Helpers.dateToLongString date
 
         exercisesLength =
             List.length exercises
@@ -525,113 +522,18 @@ viewDayLink ( date, exercises ) =
         ]
 
 
-dateToLongString : Date -> String
-dateToLongString date =
-    weekdayToString (Date.weekday date)
-        ++ ", "
-        ++ String.fromInt (Date.day date)
-        ++ " "
-        ++ monthToString (Date.month date)
-        ++ " "
-        ++ String.fromInt (Date.year date)
-
-
-type alias Word =
-    { singular : String
-    , plural : String
-    }
-
-
-words : { exercise : Word }
-words =
-    { exercise = Word "exercise" "exercises"
-    }
-
-
-plural : Word -> Int -> String
-plural word number =
-    case number of
-        1 ->
-            word.singular
-
-        _ ->
-            word.plural
-
-
-weekdayToString : Time.Weekday -> String
-weekdayToString weekday =
-    case weekday of
-        Time.Mon ->
-            "Monday"
-
-        Time.Tue ->
-            "Tuesday"
-
-        Time.Wed ->
-            "Wednesday"
-
-        Time.Thu ->
-            "Thursday"
-
-        Time.Fri ->
-            "Friday"
-
-        Time.Sat ->
-            "Saturday"
-
-        Time.Sun ->
-            "Sunday"
-
-
-monthToString : Time.Month -> String
-monthToString month =
-    case month of
-        Time.Jan ->
-            "Jan."
-
-        Time.Feb ->
-            "Feb."
-
-        Time.Mar ->
-            "Mar."
-
-        Time.Apr ->
-            "Apr."
-
-        Time.May ->
-            "May"
-
-        Time.Jul ->
-            "Jul."
-
-        Time.Jun ->
-            "Jun."
-
-        Time.Aug ->
-            "Aug."
-
-        Time.Sep ->
-            "Sep."
-
-        Time.Oct ->
-            "Oct."
-
-        Time.Nov ->
-            "Nov."
-
-        Time.Dec ->
-            "Dec."
-
-
 viewExercise : Exercise -> Html Msg
 viewExercise exercise =
     Html.div []
         [ Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
         , Html.text
             (String.fromInt exercise.setsNumber
-                ++ " sets, "
+                ++ " "
+                ++ plural words.set exercise.setsNumber
+                ++ ", "
                 ++ String.fromInt exercise.repetitionsNumber
-                ++ " repetitions"
+                ++ " "
+                ++ plural words.repetition exercise.repetitionsNumber
             )
         , Html.div [ Html.Attributes.class "mt-1 mb-2" ]
             [ Html.a
@@ -654,7 +556,7 @@ viewDay date exercises =
         filteredExercises =
             List.filter (\exercise -> exercise.date == date) exercises
     in
-    viewPage (dateToLongString date)
+    viewPage (Helpers.dateToLongString date)
         (Html.div
             []
             (if List.length filteredExercises == 0 then

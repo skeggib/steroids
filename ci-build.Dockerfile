@@ -4,4 +4,4 @@ COPY . /app/
 
 WORKDIR /app
 
-RUN elm make src/Main.elm --output=output/main.js
+RUN elm make src/Main.elm --output=app/main.js

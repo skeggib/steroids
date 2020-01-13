@@ -1,5 +1,6 @@
-module CreateExerciseForm exposing (Error(..), Form, Msg, getOutput, init, update, validate, view)
+module CreateExerciseForm exposing (Form, Msg(..), getOutput, init, isSubmit, update, validate, view)
 
+import Bootstrap exposing (col, row)
 import Date
 import Exercise
 import Form exposing (getFieldAsString)
@@ -7,7 +8,8 @@ import Form.Error exposing (ErrorValue(..), value)
 import Form.Field exposing (asString)
 import Form.Input exposing (textInput)
 import Form.Validate exposing (Validation, andMap, andThen, field, int, minInt, string, succeed)
-import Html
+import Html exposing (Html)
+import Html.Attributes
 import Html.Events
 import Random
 
@@ -28,8 +30,24 @@ type Error
     = InvalidDate String
 
 
-type alias Msg =
-    Form.Msg
+type Msg
+    = FormMsg Form.Msg
+    | Cancel
+
+
+isSubmit : Msg -> Bool
+isSubmit msg =
+    case msg of
+        FormMsg formMsg ->
+            case formMsg of
+                Form.Submit ->
+                    True
+
+                _ ->
+                    False
+
+        _ ->
+            False
 
 
 init : Form
@@ -101,17 +119,9 @@ formExerciseToExercise seed formExercise =
     )
 
 
-view : Form -> (ErrorValue Error -> String) -> Html.Html Msg
-view form errorToString =
+view : Form -> Html Msg
+view form =
     let
-        errorFor field =
-            case field.liveError of
-                Just error ->
-                    Html.text (errorToString error)
-
-                Nothing ->
-                    Html.text ""
-
         nameField =
             getFieldAsString "name" form
 
@@ -124,31 +134,109 @@ view form errorToString =
         dateField =
             getFieldAsString "date" form
     in
-    Html.div []
-        [ Html.div [] [ Html.text "Create an exercise" ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Name" ]
-            , textInput nameField []
-            , errorFor nameField
+    Html.div [ Html.Attributes.class "container" ]
+        [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text "Create an exercise" ] |> col [] ]
+        , row [] [ inputGroup "Name" nameField |> col [] ]
+        , row []
+            [ inputGroup "Sets number" setsNumberField |> col []
+            , inputGroup "Repetitions number" repetitionsNumberField |> col []
             ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Sets number" ]
-            , textInput setsNumberField []
-            , errorFor setsNumberField
-            ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Repetitions numer" ]
-            , textInput repetitionsNumberField []
-            , errorFor repetitionsNumberField
-            ]
-        , Html.div []
-            [ Html.label [] [ Html.text "Date" ]
-            , textInput dateField []
-            , errorFor dateField
-            ]
-        , Html.div []
-            [ Html.button
-                [ Html.Events.onClick Form.Submit ]
-                [ Html.text "Create" ]
+        , row [] [ inputGroup "Date" dateField |> col [] ]
+        , row []
+            [ col []
+                (Html.div []
+                    [ Html.button [ Html.Attributes.class "btn btn-primary float-right ml-2", Html.Events.onClick (FormMsg Form.Submit) ] [ Html.text "Submit" ]
+                    , Html.button [ Html.Attributes.class "btn btn-secondary float-right", Html.Events.onClick Cancel ] [ Html.text "Cancel" ]
+                    ]
+                )
             ]
         ]
+
+
+inputGroup : String -> Form.FieldState Error String -> Html Msg
+inputGroup label field =
+    let
+        isInvalid =
+            case field.liveError of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
+
+        feedback =
+            case field.liveError of
+                Just error ->
+                    Html.text (errorToString error)
+
+                Nothing ->
+                    Html.text ""
+    in
+    Html.div [ Html.Attributes.class "form-group" ]
+        [ Html.label [] [ Html.text label ]
+        , Html.map FormMsg
+            (textInput field
+                [ Html.Attributes.class
+                    ("form-control"
+                        ++ (if isInvalid then
+                                " is-invalid"
+
+                            else
+                                ""
+                           )
+                    )
+                ]
+            )
+        , Html.div [ Html.Attributes.class "invalid-feedback" ] [ feedback ]
+        ]
+
+
+errorToString : Form.Error.ErrorValue Error -> String
+errorToString error =
+    case error of
+        Form.Error.Empty ->
+            "Please fill this field"
+
+        Form.Error.InvalidString ->
+            "Please fill this field"
+
+        Form.Error.InvalidEmail ->
+            "Please enter a valid email"
+
+        Form.Error.InvalidFormat ->
+            "This value is not valid"
+
+        Form.Error.InvalidInt ->
+            "This value is not valid"
+
+        Form.Error.InvalidFloat ->
+            "This value is not valid"
+
+        Form.Error.InvalidBool ->
+            "This value is not valid"
+
+        Form.Error.SmallerIntThan value ->
+            "This field cannot be smaller than " ++ String.fromInt value
+
+        Form.Error.GreaterIntThan value ->
+            "This field cannot be greater than " ++ String.fromInt value
+
+        Form.Error.SmallerFloatThan value ->
+            "This field cannot be smaller than " ++ String.fromFloat value
+
+        Form.Error.GreaterFloatThan value ->
+            "This field cannot be greater than " ++ String.fromFloat value
+
+        Form.Error.ShorterStringThan value ->
+            "This field must be at least " ++ String.fromInt value ++ " characters long"
+
+        Form.Error.LongerStringThan value ->
+            "This field must be at most " ++ String.fromInt value ++ " characters long"
+
+        Form.Error.NotIncludedIn ->
+            "I do not know this value"
+
+        Form.Error.CustomError customError ->
+            case customError of
+                InvalidDate value ->
+                    value

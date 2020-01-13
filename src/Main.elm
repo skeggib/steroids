@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Bootstrap exposing (col, row)
 import Browser
 import Browser.Navigation as Nav
 import CreateExerciseForm
@@ -8,10 +9,9 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Exercise exposing (Exercise)
 import Form
-import Form.Error
+import Helpers
 import Html exposing (Html)
 import Html.Attributes
-import Html.Events
 import Json.Decode
 import Json.Encode
 import Random
@@ -20,6 +20,7 @@ import Storage exposing (Store)
 import Task
 import Time
 import Url
+import Words exposing (plural, words)
 
 
 main : Program () Model Msg
@@ -106,7 +107,6 @@ type Msg
     | CreateSeed Time.Posix
     | ReceiveToday Date
     | CreateExerciseMsg CreateExerciseForm.Msg
-    | CancelCreateExercise
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -189,13 +189,8 @@ updateLoading msg model =
                 Nothing ->
                     ( Loading updatedModel, Cmd.none )
 
-        -- TODO: log error
         CreateExerciseMsg _ ->
-            ( Loading model, Cmd.none )
-
-        -- TODO: log error
-        CancelCreateExercise ->
-            ( Loading model, Cmd.none )
+            Debug.log "CreateExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
 
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
@@ -259,53 +254,53 @@ updateLoaded msg model =
 
                 Err error ->
                     let
-                        -- TODO: log error
                         _ =
                             Debug.log (Json.Decode.errorToString error)
                     in
                     ( Loaded model, Cmd.none )
 
-        -- TODO: log error
         CreateSeed _ ->
-            ( Loaded model, Cmd.none )
+            Debug.log "CreateSeed should not be called in the loaded model" ( Loaded model, Cmd.none )
 
         ReceiveToday today ->
             ( Loaded { model | today = today }
             , Cmd.none
             )
 
-        CreateExerciseMsg formMsg ->
+        CreateExerciseMsg createFormMsg ->
             case model.route of
                 CreateExercise ->
-                    let
-                        newForm =
-                            CreateExerciseForm.update formMsg model.createExerciseForm
-                    in
-                    case ( formMsg, CreateExerciseForm.getOutput newForm model.seed ) of
-                        ( Form.Submit, Just tuple ) ->
+                    case createFormMsg of
+                        CreateExerciseForm.FormMsg formMsg ->
                             let
-                                newStore =
-                                    Storage.setExercises (Tuple.first tuple :: Storage.getExercises model.store) model.store
+                                newForm =
+                                    CreateExerciseForm.update formMsg model.createExerciseForm
                             in
-                            ( Loaded
-                                { model
-                                    | store = newStore
-                                    , seed = Tuple.second tuple
-                                }
-                            , Cmd.batch
-                                [ Storage.save newStore
-                                , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
-                                ]
-                            )
+                            case ( formMsg, CreateExerciseForm.getOutput newForm model.seed ) of
+                                ( Form.Submit, Just tuple ) ->
+                                    let
+                                        newStore =
+                                            Storage.setExercises (Tuple.first tuple :: Storage.getExercises model.store) model.store
+                                    in
+                                    ( Loaded
+                                        { model
+                                            | store = newStore
+                                            , seed = Tuple.second tuple
+                                        }
+                                    , Cmd.batch
+                                        [ Storage.save newStore
+                                        , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+                                        ]
+                                    )
 
-                        _ ->
-                            ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
+                                _ ->
+                                    ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
+
+                        CreateExerciseForm.Cancel ->
+                            ( Loaded model, Nav.pushUrl model.key (Route.toLink Route.ListNextDays) )
 
                 _ ->
                     ( Loaded model, Cmd.none )
-
-        CancelCreateExercise ->
-            ( Loaded model, Nav.pushUrl model.key (Route.toLink Route.ListNextDays) )
 
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
@@ -372,7 +367,7 @@ view model =
 viewLoading : LoadingModel -> Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
-        ( LoadingError error, _ ) ->
+        ( LoadingError _, _ ) ->
             Html.text "Cannot load seed"
 
         ( _, LoadingError error ) ->
@@ -420,20 +415,28 @@ viewNextDays today exercises =
         todayRataDie =
             Date.toRataDie today
 
-        nextExercises =
-            List.filter (\exercise -> Date.toRataDie exercise.date >= todayRataDie) exercises
+        days =
+            exercises
+                |> List.filter (\exercise -> Date.toRataDie exercise.date >= todayRataDie)
+                |> groupExercisesByDay
+                |> Dict.toList
+                |> List.sortBy (\( ratadie, _ ) -> ratadie)
+                |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
 
-        groups =
-            Dict.toList (groupExercisesByDay nextExercises)
-    in
-    Html.div []
-        (List.append
-            [ Html.div [] [ Html.text "Exercises" ]
-            , Html.div [] [ Html.a [ Html.Attributes.href (Route.toLink Route.CreateExercise) ] [ Html.text "Create an exercise" ] ]
-            , Html.div [] [ Html.a [ Html.Attributes.href (Route.toLink Route.ListPastDays) ] [ Html.text "View past exercises" ] ]
+        buttons =
+            [ Html.a
+                [ Html.Attributes.href (Route.toLink Route.CreateExercise)
+                , Html.Attributes.class "btn btn-primary float-right ml-2"
+                ]
+                [ Html.text "Create an exercise" ]
+            , Html.a
+                [ Html.Attributes.href (Route.toLink Route.ListPastDays)
+                , Html.Attributes.class "btn btn-light float-right"
+                ]
+                [ Html.text "View past exercises" ]
             ]
-            (List.map viewDayLink groups)
-        )
+    in
+    viewDaysList days "Exercises" buttons
 
 
 viewPastDays : Date -> List Exercise -> Html Msg
@@ -442,62 +445,109 @@ viewPastDays today exercises =
         todayRataDie =
             Date.toRataDie today
 
-        nextExercises =
-            List.filter (\exercise -> Date.toRataDie exercise.date < todayRataDie) exercises
+        days =
+            exercises
+                |> List.filter (\exercise -> Date.toRataDie exercise.date < todayRataDie)
+                |> groupExercisesByDay
+                |> Dict.toList
+                |> List.sortBy (\( ratadie, _ ) -> ratadie)
+                |> List.reverse
+                |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
 
-        groups =
-            List.reverse (Dict.toList (groupExercisesByDay nextExercises))
-    in
-    Html.div []
-        (List.append
-            [ Html.div [] [ Html.text "Past exercises" ]
-            , Html.a [ Html.Attributes.href (Route.toLink Route.ListNextDays) ] [ Html.text "Go back to exercises list" ]
+        buttons =
+            [ Html.a
+                [ Html.Attributes.href (Route.toLink Route.ListNextDays)
+                , Html.Attributes.class "btn btn-light float-right"
+                ]
+                [ Html.text "Go back to exercises list" ]
             ]
-            (List.map viewDayLink groups)
+    in
+    viewDaysList days "Past exercises" buttons
+
+
+viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html Msg
+viewDaysList days header buttons =
+    viewPage
+        header
+        (Html.div
+            []
+            (List.append
+                [ row []
+                    [ Html.div []
+                        buttons
+                        |> col []
+                    ]
+                ]
+                (if List.isEmpty days then
+                    [ Html.div [ Html.Attributes.class "d-flex justify-content-center mt-3" ] [ Html.text "No exercises!" ] ]
+
+                 else
+                    List.map viewDayLink days
+                )
+            )
         )
 
 
-viewDayLink : ( Int, List Exercise ) -> Html Msg
-viewDayLink ( day, exercises ) =
-    let
-        date =
-            Date.fromRataDie day
+viewPage : String -> Html Msg -> Html Msg
+viewPage header content =
+    Html.div [ Html.Attributes.class "container" ]
+        [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text header ] |> col [] ]
+        , content
+        ]
 
+
+viewDayLink : ( Date, List Exercise ) -> Html Msg
+viewDayLink ( date, exercises ) =
+    let
         dateStr =
-            Date.toIsoString date
+            Helpers.dateToLongString date
+
+        exercisesLength =
+            List.length exercises
     in
-    Html.div []
+    row [ Html.Attributes.class "my-3" ]
         [ Html.a
-            [ Html.Attributes.href (Route.ShowDay date |> Route.toLink) ]
-            [ Html.text (dateStr ++ " (" ++ String.fromInt (List.length exercises) ++ ")") ]
+            [ Html.Attributes.href (Route.ShowDay date |> Route.toLink), Html.Attributes.class "dayLink" ]
+            [ Html.span []
+                [ Html.h3
+                    [ Html.Attributes.class "d-inline mr-3" ]
+                    [ Html.text dateStr ]
+                , Html.br [] []
+                , Html.span
+                    [ Html.Attributes.class "text-muted" ]
+                    [ Html.text (String.fromInt exercisesLength ++ " " ++ plural words.exercise exercisesLength) ]
+                ]
+                |> col []
+            ]
         ]
 
 
 viewExercise : Exercise -> Html Msg
 viewExercise exercise =
     Html.div []
-        [ Html.text
-            (exercise.name
-                ++ " ("
-                ++ String.fromInt exercise.setsNumber
-                ++ " sets, "
+        [ Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
+        , Html.text
+            (String.fromInt exercise.setsNumber
+                ++ " "
+                ++ plural words.set exercise.setsNumber
+                ++ ", "
                 ++ String.fromInt exercise.repetitionsNumber
-                ++ " repetitions)"
+                ++ " "
+                ++ plural words.repetition exercise.repetitionsNumber
             )
-        , Html.a [ Html.Attributes.href (Route.DeleteExercise exercise.id |> Route.toLink) ] [ Html.text "Delete" ]
+        , Html.div [ Html.Attributes.class "mt-1 mb-2" ]
+            [ Html.a
+                [ Html.Attributes.href (Route.DeleteExercise exercise.id |> Route.toLink)
+                , Html.Attributes.class "btn btn-danger"
+                ]
+                [ Html.text "Delete" ]
+            ]
         ]
 
 
 viewCreateExercise : CreateExerciseForm.Form -> Html Msg
 viewCreateExercise form =
-    Html.div []
-        [ Html.map CreateExerciseMsg (CreateExerciseForm.view form createExerciseErrorToString)
-        , Html.div []
-            [ Html.button
-                [ Html.Events.onClick CancelCreateExercise ]
-                [ Html.text "Cancel" ]
-            ]
-        ]
+    Html.map CreateExerciseMsg (CreateExerciseForm.view form)
 
 
 viewDay : Date -> List Exercise -> Html Msg
@@ -506,64 +556,13 @@ viewDay date exercises =
         filteredExercises =
             List.filter (\exercise -> exercise.date == date) exercises
     in
-    Html.div []
-        [ Html.text (Date.toIsoString date)
-        , Html.div []
+    viewPage (Helpers.dateToLongString date)
+        (Html.div
+            []
             (if List.length filteredExercises == 0 then
-                [ Html.text "No exercises" ]
+                [ Html.text "No exercises!" ]
 
              else
                 List.map viewExercise filteredExercises
             )
-        ]
-
-
-createExerciseErrorToString : Form.Error.ErrorValue CreateExerciseForm.Error -> String
-createExerciseErrorToString error =
-    case error of
-        Form.Error.Empty ->
-            "Please fill this field"
-
-        Form.Error.InvalidString ->
-            "Please fill this field"
-
-        Form.Error.InvalidEmail ->
-            "Please enter a valid email"
-
-        Form.Error.InvalidFormat ->
-            "This value is not valid"
-
-        Form.Error.InvalidInt ->
-            "This value is not valid"
-
-        Form.Error.InvalidFloat ->
-            "This value is not valid"
-
-        Form.Error.InvalidBool ->
-            "This value is not valid"
-
-        Form.Error.SmallerIntThan value ->
-            "This field cannot be smaller than " ++ String.fromInt value
-
-        Form.Error.GreaterIntThan value ->
-            "This field cannot be greater than " ++ String.fromInt value
-
-        Form.Error.SmallerFloatThan value ->
-            "This field cannot be smaller than " ++ String.fromFloat value
-
-        Form.Error.GreaterFloatThan value ->
-            "This field cannot be greater than " ++ String.fromFloat value
-
-        Form.Error.ShorterStringThan value ->
-            "This field must be at least " ++ String.fromInt value ++ " characters long"
-
-        Form.Error.LongerStringThan value ->
-            "This field must be at most " ++ String.fromInt value ++ " characters long"
-
-        Form.Error.NotIncludedIn ->
-            "I do not know this value"
-
-        Form.Error.CustomError customError ->
-            case customError of
-                CreateExerciseForm.InvalidDate value ->
-                    value
+        )

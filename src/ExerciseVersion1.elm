@@ -1,4 +1,4 @@
-module Exercise exposing (Exercise, Id, createId, decoder, encode, idFromString, idToString)
+module ExerciseVersion1 exposing (Exercise, Id(..), createId, dateDecoder, decoder, encode, idDecoder, idFromString, idToString)
 
 import Date exposing (Date)
 import Json.Decode exposing (Decoder, andThen, fail, int, string, succeed)

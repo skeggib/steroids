@@ -7,7 +7,7 @@ import CreateExerciseForm
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
-import Exercise exposing (Exercise)
+import ExerciseVersion2 as Exercise exposing (Exercise)
 import Form
 import Helpers
 import Html exposing (Html)
@@ -16,7 +16,7 @@ import Json.Decode
 import Json.Encode
 import Random
 import Route exposing (Route(..), parseRoute)
-import Storage exposing (Store)
+import StorageVersion2 as Storage exposing (Store)
 import Task
 import Time
 import Url

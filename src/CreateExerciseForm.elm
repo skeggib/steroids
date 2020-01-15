@@ -2,7 +2,7 @@ module CreateExerciseForm exposing (Form, Msg(..), getOutput, init, isSubmit, up
 
 import Bootstrap exposing (col, row)
 import Date
-import Exercise
+import ExerciseVersion2 as Exercise
 import Form exposing (getFieldAsString)
 import Form.Error exposing (ErrorValue(..), value)
 import Form.Field exposing (asString)
@@ -114,6 +114,7 @@ formExerciseToExercise seed formExercise =
       , setsNumber = formExercise.setsNumber
       , repetitionsNumber = formExercise.repetitionsNumber
       , date = formExercise.date
+      , validated = False
       }
     , Tuple.second idTuple
     )

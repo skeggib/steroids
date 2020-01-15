@@ -1,7 +1,7 @@
 module Route exposing (Route(..), parseRoute, toLink)
 
 import Date exposing (Date)
-import Exercise
+import ExerciseVersion2 as Exercise
 import Url exposing (Url)
 import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
 

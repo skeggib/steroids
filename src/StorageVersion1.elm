@@ -1,6 +1,6 @@
-port module Storage exposing (Store, decoder, encode, getExercises, init, receive, request, save, setExercises)
+module StorageVersion1 exposing (Store(..), decoder, encode, getExercises, init, setExercises)
 
-import Exercise exposing (Exercise)
+import ExerciseVersion1 as Exercise
 import Json.Decode exposing (Decoder, list, succeed)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
@@ -11,22 +11,8 @@ type Store
 
 
 type alias Model =
-    { exercises : List Exercise
+    { exercises : List Exercise.Exercise
     }
-
-
-port request : () -> Cmd msg
-
-
-port receive : (Json.Encode.Value -> msg) -> Sub msg
-
-
-save : Store -> Cmd msg
-save store =
-    savePort (encode store)
-
-
-port savePort : Json.Encode.Value -> Cmd msg
 
 
 init : Store
@@ -36,14 +22,14 @@ init =
         }
 
 
-getExercises : Store -> List Exercise
+getExercises : Store -> List Exercise.Exercise
 getExercises store =
     case store of
         Store record ->
             record.exercises
 
 
-setExercises : List Exercise -> Store -> Store
+setExercises : List Exercise.Exercise -> Store -> Store
 setExercises exercises store =
     case store of
         Store record ->
@@ -59,11 +45,12 @@ encode store =
     case store of
         Store { exercises } ->
             Json.Encode.object
-                [ ( "exercises", Json.Encode.list Exercise.encode exercises )
+                [ ( "version", Json.Encode.int 1 )
+                , ( "exercises", Json.Encode.list Exercise.encode exercises )
                 ]
 
 
-decoderExercisesList : Decoder (List Exercise)
+decoderExercisesList : Decoder (List Exercise.Exercise)
 decoderExercisesList =
     list Exercise.decoder
 

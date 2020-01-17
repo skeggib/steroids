@@ -108,7 +108,7 @@ type Msg
     | CreateSeed Time.Posix
     | ReceiveToday Date
     | CreateExerciseMsg CreateExerciseForm.Msg
-    | ToggleValidated Exercise.Id Bool
+    | ToggleValidated Exercise.Id
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -194,7 +194,7 @@ updateLoading msg model =
         CreateExerciseMsg _ ->
             Debug.log "CreateExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
-        ToggleValidated _ _ ->
+        ToggleValidated _ ->
             Debug.log "ToggleValidated should not be called in the loading model" ( Loading model, Cmd.none )
 
 
@@ -307,7 +307,7 @@ updateLoaded msg model =
                 _ ->
                     ( Loaded model, Cmd.none )
 
-        ToggleValidated exerciseId validated ->
+        ToggleValidated exerciseId ->
             let
                 exercises =
                     Storage.getExercises model.store
@@ -318,7 +318,7 @@ updateLoaded msg model =
                 updatedExercise =
                     case filteredExercises of
                         exerciseToUpdate :: _ ->
-                            Just { exerciseToUpdate | validated = validated }
+                            Just { exerciseToUpdate | validated = not exerciseToUpdate.validated }
 
                         [] ->
                             Nothing
@@ -577,12 +577,41 @@ viewDayLink ( date, exercises ) =
         ]
 
 
+validatedCheckBox : Bool -> List (Html.Attribute Msg) -> Html Msg
+validatedCheckBox checked attributes =
+    Html.i
+        (List.append
+            [ Html.Attributes.class "material-icons"
+            , Html.Attributes.style "color"
+                (if checked then
+                    "#00c853"
+
+                 else
+                    "#cccccc"
+                )
+            , Html.Attributes.style "font-size" "24px"
+            ]
+            attributes
+        )
+        [ if checked then
+            Html.text "check_circle"
+
+          else
+            Html.text "radio_button_unchecked"
+        ]
+
+
 viewExercise : Exercise -> Html Msg
 viewExercise exercise =
-    Html.div []
-        [ row [] [ Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ] |> col [] ]
-        , row []
-            [ Html.text
+    let
+        title =
+            Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
+
+        checkBox =
+            validatedCheckBox exercise.validated []
+
+        text =
+            Html.text
                 (String.fromInt exercise.setsNumber
                     ++ " "
                     ++ plural words.set exercise.setsNumber
@@ -591,30 +620,32 @@ viewExercise exercise =
                     ++ " "
                     ++ plural words.repetition exercise.repetitionsNumber
                 )
-                |> col []
-            , Html.label
-                [ Html.Attributes.class "form-check-label"
-                , Html.Attributes.class "float-right"
-                ]
-                [ Html.input
-                    [ Html.Attributes.type_ "checkbox"
-                    , Html.Attributes.checked exercise.validated
-                    , Html.Attributes.class "form-check-input"
-                    , Html.Events.onCheck (ToggleValidated exercise.id)
-                    ]
-                    []
-                , Html.text "Done"
-                ]
-                |> col []
-            ]
-        , row [ Html.Attributes.class "mt-1 mb-2" ]
-            [ Html.a
+
+        buttonDelete =
+            Html.a
                 [ Html.Attributes.href (Route.DeleteExercise exercise.id |> Route.toLink)
                 , Html.Attributes.class "btn btn-danger"
                 ]
                 [ Html.text "Delete" ]
+    in
+    Html.div []
+        [ row []
+            [ col
+                [ Html.Events.onClick (ToggleValidated exercise.id)
+                , Html.Attributes.class "col-3"
+                , Html.Attributes.class "d-flex justify-content-center align-items-center"
+                ]
+                checkBox
+            , col [ Html.Attributes.class "col-7" ]
+                (row []
+                    [ row [] [ col [] title ]
+                    , row [] [ col [] text ]
+                    ]
+                )
             ]
-            |> col []
+        , row []
+            [ col [] buttonDelete
+            ]
         ]
 
 

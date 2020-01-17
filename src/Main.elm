@@ -533,7 +533,7 @@ viewDaysList days header buttons =
 viewPage : String -> Html Msg -> Html Msg
 viewPage header content =
     Html.div [ Html.Attributes.class "container" ]
-        [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text header ] |> col [] ]
+        [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
         , content
         ]
 
@@ -621,15 +621,15 @@ viewExercise exercise =
                     ++ plural words.repetition exercise.repetitionsNumber
                 )
     in
-    Html.div []
+    Html.div [ Html.Attributes.class "mb-3" ]
         [ row []
             [ col
                 [ Html.Events.onClick (ToggleValidated exercise.id)
-                , Html.Attributes.class "col-3"
+                , Html.Attributes.class "col-2"
                 , Html.Attributes.class "d-flex justify-content-center align-items-center"
                 ]
                 checkBox
-            , col [ Html.Attributes.class "col-7" ]
+            , col [ Html.Attributes.class "col-8 pl-0" ]
                 (Html.div []
                     [ row [] [ col [] title ]
                     , row [] [ col [] text ]

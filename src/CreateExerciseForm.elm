@@ -143,7 +143,7 @@ view form =
             , inputGroup "Repetitions number" repetitionsNumberField |> col []
             ]
         , row [] [ inputGroup "Date" dateField |> col [] ]
-        , row []
+        , row [ Html.Attributes.class "mt-3" ]
             [ col []
                 (Html.div []
                     [ Html.button [ Html.Attributes.class "btn btn-primary float-right ml-2", Html.Events.onClick (FormMsg Form.Submit) ] [ Html.text "Submit" ]

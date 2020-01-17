@@ -620,13 +620,6 @@ viewExercise exercise =
                     ++ " "
                     ++ plural words.repetition exercise.repetitionsNumber
                 )
-
-        buttonDelete =
-            Html.a
-                [ Html.Attributes.href (Route.DeleteExercise exercise.id |> Route.toLink)
-                , Html.Attributes.class "btn btn-danger"
-                ]
-                [ Html.text "Delete" ]
     in
     Html.div []
         [ row []
@@ -642,9 +635,6 @@ viewExercise exercise =
                     , row [] [ col [] text ]
                     ]
                 )
-            ]
-        , row []
-            [ col [] buttonDelete
             ]
         ]
 

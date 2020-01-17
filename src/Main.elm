@@ -7,16 +7,17 @@ import CreateExerciseForm
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
-import Exercise exposing (Exercise)
+import ExerciseVersion2 as Exercise exposing (Exercise)
 import Form
 import Helpers
 import Html exposing (Html)
 import Html.Attributes
+import Html.Events
 import Json.Decode
 import Json.Encode
 import Random
 import Route exposing (Route(..), parseRoute)
-import Storage exposing (Store)
+import StorageVersion2 as Storage exposing (Store)
 import Task
 import Time
 import Url
@@ -107,6 +108,7 @@ type Msg
     | CreateSeed Time.Posix
     | ReceiveToday Date
     | CreateExerciseMsg CreateExerciseForm.Msg
+    | ToggleValidated Exercise.Id
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -191,6 +193,9 @@ updateLoading msg model =
 
         CreateExerciseMsg _ ->
             Debug.log "CreateExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
+
+        ToggleValidated _ ->
+            Debug.log "ToggleValidated should not be called in the loading model" ( Loading model, Cmd.none )
 
 
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
@@ -301,6 +306,43 @@ updateLoaded msg model =
 
                 _ ->
                     ( Loaded model, Cmd.none )
+
+        ToggleValidated exerciseId ->
+            let
+                exercises =
+                    Storage.getExercises model.store
+
+                filteredExercises =
+                    List.filter (\e -> e.id == exerciseId) exercises
+
+                updatedExercise =
+                    case filteredExercises of
+                        exerciseToUpdate :: _ ->
+                            Just { exerciseToUpdate | validated = not exerciseToUpdate.validated }
+
+                        [] ->
+                            Nothing
+
+                updatedExercisesList =
+                    case updatedExercise of
+                        Just exercise ->
+                            List.map
+                                (\e ->
+                                    if e.id == exerciseId then
+                                        exercise
+
+                                    else
+                                        e
+                                )
+                                exercises
+
+                        Nothing ->
+                            exercises
+
+                updatedStore =
+                    Storage.setExercises updatedExercisesList model.store
+            in
+            ( Loaded { model | store = updatedStore }, Storage.save updatedStore )
 
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
@@ -491,7 +533,7 @@ viewDaysList days header buttons =
 viewPage : String -> Html Msg -> Html Msg
 viewPage header content =
     Html.div [ Html.Attributes.class "container" ]
-        [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text header ] |> col [] ]
+        [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
         , content
         ]
 
@@ -504,6 +546,9 @@ viewDayLink ( date, exercises ) =
 
         exercisesLength =
             List.length exercises
+
+        doneNumber =
+            List.length (List.filter (\e -> e.validated) exercises)
     in
     row [ Html.Attributes.class "my-3" ]
         [ Html.a
@@ -515,32 +560,81 @@ viewDayLink ( date, exercises ) =
                 , Html.br [] []
                 , Html.span
                     [ Html.Attributes.class "text-muted" ]
-                    [ Html.text (String.fromInt exercisesLength ++ " " ++ plural words.exercise exercisesLength) ]
+                    [ Html.text
+                        (String.fromInt exercisesLength
+                            ++ " "
+                            ++ plural words.exercise exercisesLength
+                            ++ " ("
+                            ++ String.fromInt doneNumber
+                            ++ "/"
+                            ++ String.fromInt exercisesLength
+                            ++ " done)"
+                        )
+                    ]
                 ]
                 |> col []
             ]
         ]
 
 
+validatedCheckBox : Bool -> List (Html.Attribute Msg) -> Html Msg
+validatedCheckBox checked attributes =
+    Html.i
+        (List.append
+            [ Html.Attributes.class "material-icons"
+            , Html.Attributes.style "color"
+                (if checked then
+                    "#00c853"
+
+                 else
+                    "#cccccc"
+                )
+            , Html.Attributes.style "font-size" "24px"
+            ]
+            attributes
+        )
+        [ if checked then
+            Html.text "check_circle"
+
+          else
+            Html.text "radio_button_unchecked"
+        ]
+
+
 viewExercise : Exercise -> Html Msg
 viewExercise exercise =
-    Html.div []
-        [ Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
-        , Html.text
-            (String.fromInt exercise.setsNumber
-                ++ " "
-                ++ plural words.set exercise.setsNumber
-                ++ ", "
-                ++ String.fromInt exercise.repetitionsNumber
-                ++ " "
-                ++ plural words.repetition exercise.repetitionsNumber
-            )
-        , Html.div [ Html.Attributes.class "mt-1 mb-2" ]
-            [ Html.a
-                [ Html.Attributes.href (Route.DeleteExercise exercise.id |> Route.toLink)
-                , Html.Attributes.class "btn btn-danger"
+    let
+        title =
+            Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
+
+        checkBox =
+            validatedCheckBox exercise.validated []
+
+        text =
+            Html.text
+                (String.fromInt exercise.setsNumber
+                    ++ " "
+                    ++ plural words.set exercise.setsNumber
+                    ++ ", "
+                    ++ String.fromInt exercise.repetitionsNumber
+                    ++ " "
+                    ++ plural words.repetition exercise.repetitionsNumber
+                )
+    in
+    Html.div [ Html.Attributes.class "mb-3" ]
+        [ row []
+            [ col
+                [ Html.Events.onClick (ToggleValidated exercise.id)
+                , Html.Attributes.class "col-2"
+                , Html.Attributes.class "d-flex justify-content-center align-items-center"
                 ]
-                [ Html.text "Delete" ]
+                checkBox
+            , col [ Html.Attributes.class "col-8 pl-0" ]
+                (Html.div []
+                    [ row [] [ col [] title ]
+                    , row [] [ col [] text ]
+                    ]
+                )
             ]
         ]
 

@@ -1,11 +1,13 @@
 module StorageTests exposing (suite)
 
 import Date
-import Exercise
+import ExerciseVersion1
+import ExerciseVersion2
 import Expect
 import Json.Decode
 import Random
-import Storage
+import StorageVersion1
+import StorageVersion2
 import Test exposing (Test, describe, test)
 import Time
 
@@ -14,14 +16,14 @@ suite : Test
 suite =
     describe "Storage module tests"
         [ describe "Store JSON encode/decoding"
-            [ test "an encoded store can be decoded" <|
+            [ test "a v1 encoded store can be decoded" <|
                 \_ ->
                     let
                         date =
-                            Date.fromCalendarDate 30 Time.Mar 2012
+                            Date.fromCalendarDate 2012 Time.Mar 30
 
                         id =
-                            Exercise.createId (Random.initialSeed 0)
+                            ExerciseVersion1.createId (Random.initialSeed 0)
 
                         exercise =
                             { id = Tuple.first id
@@ -32,24 +34,40 @@ suite =
                             }
 
                         store =
-                            Storage.setExercises [ exercise ] Storage.init
+                            StorageVersion1.setExercises [ exercise ] StorageVersion1.init
 
                         encoded =
-                            Storage.encode store
-
-                        resultDecoded =
-                            case Json.Decode.decodeValue Storage.decoder encoded of
-                                Ok decoded ->
-                                    Ok decoded
-
-                                Err error ->
-                                    Err (Json.Decode.errorToString error)
+                            StorageVersion1.encode store
                     in
-                    case resultDecoded of
-                        Ok decoded ->
-                            Expect.equal store decoded
+                    Expect.equal
+                        (Ok store)
+                        (Json.Decode.decodeValue StorageVersion1.decoder encoded)
+            , test "a v2 encoded store can be decoded" <|
+                \_ ->
+                    let
+                        date =
+                            Date.fromCalendarDate 2012 Time.Mar 30
 
-                        Err error ->
-                            Expect.fail error
+                        id =
+                            ExerciseVersion2.createId (Random.initialSeed 0)
+
+                        exercise =
+                            { id = Tuple.first id
+                            , name = "test"
+                            , setsNumber = 5
+                            , repetitionsNumber = 10
+                            , date = date
+                            , validated = True
+                            }
+
+                        store =
+                            StorageVersion2.setExercises [ exercise ] StorageVersion2.init
+
+                        encoded =
+                            StorageVersion2.encode store
+                    in
+                    Expect.equal
+                        (Ok store)
+                        (Json.Decode.decodeValue StorageVersion2.decoder encoded)
             ]
         ]

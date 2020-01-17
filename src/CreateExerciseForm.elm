@@ -2,7 +2,7 @@ module CreateExerciseForm exposing (Form, Msg(..), getOutput, init, isSubmit, up
 
 import Bootstrap exposing (col, row)
 import Date
-import Exercise
+import ExerciseVersion2 as Exercise
 import Form exposing (getFieldAsString)
 import Form.Error exposing (ErrorValue(..), value)
 import Form.Field exposing (asString)
@@ -114,6 +114,7 @@ formExerciseToExercise seed formExercise =
       , setsNumber = formExercise.setsNumber
       , repetitionsNumber = formExercise.repetitionsNumber
       , date = formExercise.date
+      , validated = False
       }
     , Tuple.second idTuple
     )
@@ -142,7 +143,7 @@ view form =
             , inputGroup "Repetitions number" repetitionsNumberField |> col []
             ]
         , row [] [ inputGroup "Date" dateField |> col [] ]
-        , row []
+        , row [ Html.Attributes.class "mt-3" ]
             [ col []
                 (Html.div []
                     [ Html.button [ Html.Attributes.class "btn btn-primary float-right ml-2", Html.Events.onClick (FormMsg Form.Submit) ] [ Html.text "Submit" ]

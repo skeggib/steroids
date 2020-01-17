@@ -630,7 +630,7 @@ viewExercise exercise =
                 ]
                 checkBox
             , col [ Html.Attributes.class "col-7" ]
-                (row []
+                (Html.div []
                     [ row [] [ col [] title ]
                     , row [] [ col [] text ]
                     ]

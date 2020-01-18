@@ -7,6 +7,7 @@ import CreateExerciseForm
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
+import EditExerciseForm
 import ExerciseVersion2 as Exercise exposing (Exercise)
 import Form
 import Helpers
@@ -65,6 +66,7 @@ type alias LoadedModel =
     , url : Url.Url
     , route : Route
     , createExerciseForm : CreateExerciseForm.Form
+    , editExerciseForm : Maybe EditExerciseForm.Form
     , store : Store
     , seed : Random.Seed
     , today : Date
@@ -108,7 +110,13 @@ type Msg
     | CreateSeed Time.Posix
     | ReceiveToday Date
     | CreateExerciseMsg CreateExerciseForm.Msg
+    | EditExerciseMsg EditExerciseForm.Msg
     | ToggleValidated Exercise.Id
+
+
+goToMainPageCmd : LoadedModel -> Cmd Msg
+goToMainPageCmd model =
+    Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -194,6 +202,9 @@ updateLoading msg model =
         CreateExerciseMsg _ ->
             Debug.log "CreateExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
+        EditExerciseMsg _ ->
+            Debug.log "EditExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
+
         ToggleValidated _ ->
             Debug.log "ToggleValidated should not be called in the loading model" ( Loading model, Cmd.none )
 
@@ -229,7 +240,7 @@ updateLoaded msg model =
                         }
                     , Cmd.batch
                         [ Storage.save newStore
-                        , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+                        , goToMainPageCmd model
                         ]
                     )
 
@@ -242,6 +253,26 @@ updateLoaded msg model =
                         }
                     , Cmd.none
                     )
+
+                EditExercise id ->
+                    let
+                        maybeExercise =
+                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
+                                |> List.head
+                    in
+                    case maybeExercise of
+                        Just exercise ->
+                            ( Loaded
+                                { model
+                                    | editExerciseForm = Just (EditExerciseForm.init exercise)
+                                    , url = url
+                                    , route = route
+                                }
+                            , Cmd.none
+                            )
+
+                        Nothing ->
+                            ( Loaded { model | url = url, route = route }, Cmd.none )
 
                 _ ->
                     ( Loaded { model | url = url, route = route }, Cmd.none )
@@ -294,7 +325,7 @@ updateLoaded msg model =
                                         }
                                     , Cmd.batch
                                         [ Storage.save newStore
-                                        , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+                                        , goToMainPageCmd model
                                         ]
                                     )
 
@@ -302,7 +333,65 @@ updateLoaded msg model =
                                     ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
 
                         CreateExerciseForm.Cancel ->
-                            ( Loaded model, Nav.pushUrl model.key (Route.toLink Route.ListNextDays) )
+                            ( Loaded model, goToMainPageCmd model )
+
+                _ ->
+                    ( Loaded model, Cmd.none )
+
+        EditExerciseMsg editFormMsg ->
+            case model.route of
+                EditExercise id ->
+                    let
+                        maybeExercise =
+                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
+                                |> List.head
+                    in
+                    case maybeExercise of
+                        Just exercise ->
+                            case editFormMsg of
+                                EditExerciseForm.FormMsg formMsg ->
+                                    let
+                                        newForm =
+                                            case model.editExerciseForm of
+                                                Just form ->
+                                                    EditExerciseForm.update formMsg form
+
+                                                Nothing ->
+                                                    EditExerciseForm.init exercise
+                                    in
+                                    case ( formMsg, EditExerciseForm.getOutput newForm exercise ) of
+                                        ( Form.Submit, Just updatedExercise ) ->
+                                            let
+                                                newStore =
+                                                    Storage.setExercises
+                                                        (List.map
+                                                            (\e ->
+                                                                if e.id == id then
+                                                                    updatedExercise
+
+                                                                else
+                                                                    e
+                                                            )
+                                                            (Storage.getExercises model.store)
+                                                        )
+                                                        model.store
+                                            in
+                                            ( Loaded
+                                                { model | store = newStore }
+                                            , Cmd.batch
+                                                [ Storage.save newStore
+                                                , goToMainPageCmd model
+                                                ]
+                                            )
+
+                                        _ ->
+                                            ( Loaded { model | editExerciseForm = Just newForm }, Cmd.none )
+
+                                EditExerciseForm.Cancel ->
+                                    ( Loaded model, goToMainPageCmd model )
+
+                        Nothing ->
+                            ( Loaded model, goToMainPageCmd model )
 
                 _ ->
                     ( Loaded model, Cmd.none )
@@ -374,6 +463,7 @@ loadingToLoaded loading =
                 , url = loading.url
                 , route = parseRoute loading.url
                 , createExerciseForm = CreateExerciseForm.init
+                , editExerciseForm = Nothing
                 , store = store
                 , seed = seed
                 , today = today
@@ -433,6 +523,14 @@ viewLoaded model =
 
         CreateExercise ->
             viewCreateExercise model.createExerciseForm
+
+        EditExercise _ ->
+            case model.editExerciseForm of
+                Just form ->
+                    viewEditExercise form
+
+                Nothing ->
+                    viewNotFound
 
         DeleteExercise id ->
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
@@ -642,6 +740,11 @@ viewExercise exercise =
 viewCreateExercise : CreateExerciseForm.Form -> Html Msg
 viewCreateExercise form =
     Html.map CreateExerciseMsg (CreateExerciseForm.view form)
+
+
+viewEditExercise : EditExerciseForm.Form -> Html Msg
+viewEditExercise form =
+    Html.map EditExerciseMsg (EditExerciseForm.view form)
 
 
 viewDay : Date -> List Exercise -> Html Msg

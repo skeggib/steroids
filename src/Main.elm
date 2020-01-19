@@ -10,14 +10,13 @@ import Dict.Extra
 import EditExerciseForm
 import ExerciseVersion2 as Exercise exposing (Exercise)
 import Form
+import Gestures
 import Helpers
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
-import Html.Events.Extra.Touch as Touch
 import Json.Decode
 import Json.Encode
-import Process
 import Random
 import Route exposing (Route(..), parseRoute)
 import StorageVersion2 as Storage exposing (Store)
@@ -75,10 +74,7 @@ type alias LoadedModel =
     , store : Store
     , seed : Random.Seed
     , today : Date
-    , pressingExercise : Maybe Exercise
-    , pressedExercise : Maybe Exercise
-    , pressingIndex : Int
-    , pressingStartPos : ( Float, Float )
+    , longPress : Gestures.LongPressModel Exercise
     }
 
 
@@ -121,15 +117,7 @@ type Msg
     | CreateExerciseMsg CreateExerciseForm.Msg
     | EditExerciseMsg EditExerciseForm.Msg
     | ToggleValidated Exercise.Id
-    | ExercisePressEvent ExercisePressEvent
-
-
-type ExercisePressEvent
-    = ExercisePress Exercise ( Float, Float )
-    | ExerciseRelease
-    | ExerciseMove ( Float, Float )
-    | ExerciseTimeout Exercise Int
-    | ResetPressedExercise
+    | ExerciseLongPress (Gestures.LongPressEvent Exercise)
 
 
 goToMainPageCmd : LoadedModel -> Cmd Msg
@@ -226,7 +214,7 @@ updateLoading msg model =
         ToggleValidated _ ->
             Debug.log "ToggleValidated should not be called in the loading model" ( Loading model, Cmd.none )
 
-        ExercisePressEvent _ ->
+        ExerciseLongPress _ ->
             Debug.log "ExercisePressEvent should not be called in the loading model" ( Loading model, Cmd.none )
 
 
@@ -454,55 +442,15 @@ updateLoaded msg model =
             in
             ( Loaded { model | store = updatedStore }, Storage.save updatedStore )
 
-        ExercisePressEvent event ->
-            case event of
-                ExercisePress exercise pos ->
-                    ( Loaded
-                        { model
-                            | pressingExercise = Just exercise
-                            , pressingStartPos = pos
-                            , pressingIndex = model.pressingIndex + 1
-                            , pressedExercise = Nothing
-                        }
-                    , Process.sleep 750 |> Task.perform (\_ -> ExercisePressEvent (ExerciseTimeout exercise (model.pressingIndex + 1)))
-                    )
-
-                ExerciseRelease ->
-                    ( Loaded { model | pressingExercise = Nothing }
-                    , Cmd.none
-                    )
-
-                ExerciseMove pos ->
-                    let
-                        newModel =
-                            if distance pos model.pressingStartPos > 50 then
-                                { model | pressingExercise = Nothing }
-
-                            else
-                                model
-                    in
-                    ( Loaded newModel, Cmd.none )
-
-                ExerciseTimeout exercise index ->
-                    if model.pressingExercise == Just exercise && model.pressingIndex == index then
-                        ( Loaded
-                            { model
-                                | pressedExercise = Just exercise
-                                , pressingExercise = Nothing
-                            }
-                        , Cmd.none
-                        )
-
-                    else
-                        ( Loaded model, Cmd.none )
-
-                ResetPressedExercise ->
-                    ( Loaded { model | pressedExercise = Nothing }, Cmd.none )
-
-
-distance : ( Float, Float ) -> ( Float, Float ) -> Float
-distance p1 p2 =
-    (Tuple.first p1 - Tuple.first p2) ^ 2 + (Tuple.second p1 - Tuple.second p2) ^ 2 |> sqrt
+        ExerciseLongPress event ->
+            let
+                tuple =
+                    Gestures.updateLongPress
+                        event
+                        model.longPress
+                        (\e -> ExerciseLongPress e)
+            in
+            ( Loaded { model | longPress = Tuple.first tuple }, Tuple.second tuple )
 
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
@@ -538,10 +486,7 @@ loadingToLoaded loading =
                 , store = store
                 , seed = seed
                 , today = today
-                , pressingExercise = Nothing
-                , pressedExercise = Nothing
-                , pressingIndex = 0
-                , pressingStartPos = ( 0, 0 )
+                , longPress = Gestures.initLongPress
                 }
 
         _ ->
@@ -552,7 +497,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ Storage.receive ReceiveStore
-        , bodyMouseDown (\_ -> ExercisePressEvent ResetPressedExercise)
+        , bodyMouseDown (\_ -> ExerciseLongPress Gestures.Reset)
         ]
 
 
@@ -614,7 +559,7 @@ viewLoaded model =
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
 
         ShowDay date ->
-            viewDay date (Storage.getExercises model.store) model.pressingExercise model.pressedExercise
+            viewDay date (Storage.getExercises model.store) model.longPress.pressing model.longPress.pressed
 
 
 viewNotFound : Html Msg
@@ -798,29 +743,28 @@ viewExercise exercise pressing pressed =
                 )
     in
     Html.div
-        [ Html.Attributes.class "p-2"
-        , Touch.onWithOptions "touchstart"
-            { stopPropagation = False, preventDefault = False }
-            (\event -> ExercisePressEvent (ExercisePress exercise (touchCoordinates event)))
-        , Touch.onWithOptions "touchmove"
-            { stopPropagation = False, preventDefault = False }
-            (\event -> ExercisePressEvent (ExerciseMove (touchCoordinates event)))
-        , Touch.onEnd (\_ -> ExercisePressEvent ExerciseRelease)
-        , Html.Attributes.style "background-color"
-            (case ( pressing, pressed ) of
-                ( True, False ) ->
-                    "#f5f5f5"
+        (List.append
+            [ Html.Attributes.class "p-2"
+            , Html.Attributes.style "background-color"
+                (case ( pressing, pressed ) of
+                    ( True, False ) ->
+                        "#f5f5f5"
 
-                ( False, True ) ->
-                    "#b3e5fc"
+                    ( False, True ) ->
+                        "#b3e5fc"
 
-                ( True, True ) ->
-                    "#81d4fa"
+                    ( True, True ) ->
+                        "#81d4fa"
 
-                ( False, False ) ->
-                    "rgba(0,0,0,0)"
+                    ( False, False ) ->
+                        "rgba(0,0,0,0)"
+                )
+            ]
+            (Gestures.longPress
+                exercise
+                (\e -> ExerciseLongPress e)
             )
-        ]
+        )
         [ row []
             [ col
                 [ Html.Events.onClick (ToggleValidated exercise.id)
@@ -836,13 +780,6 @@ viewExercise exercise pressing pressed =
                 )
             ]
         ]
-
-
-touchCoordinates : Touch.Event -> ( Float, Float )
-touchCoordinates touchEvent =
-    List.head touchEvent.changedTouches
-        |> Maybe.map .clientPos
-        |> Maybe.withDefault ( 0, 0 )
 
 
 viewCreateExercise : CreateExerciseForm.Form -> Html Msg

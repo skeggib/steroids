@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (bodyMouseDown, main)
 
 import Bootstrap exposing (col, row)
 import Browser
@@ -14,8 +14,10 @@ import Helpers
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
+import Html.Events.Extra.Touch as Touch
 import Json.Decode
 import Json.Encode
+import Process
 import Random
 import Route exposing (Route(..), parseRoute)
 import StorageVersion2 as Storage exposing (Store)
@@ -35,6 +37,9 @@ main =
         , onUrlRequest = UrlRequested
         , onUrlChange = UrlChanged
         }
+
+
+port bodyMouseDown : (() -> msg) -> Sub msg
 
 
 
@@ -70,6 +75,10 @@ type alias LoadedModel =
     , store : Store
     , seed : Random.Seed
     , today : Date
+    , pressingExercise : Maybe Exercise
+    , pressedExercise : Maybe Exercise
+    , pressingIndex : Int
+    , pressingStartPos : ( Float, Float )
     }
 
 
@@ -112,6 +121,15 @@ type Msg
     | CreateExerciseMsg CreateExerciseForm.Msg
     | EditExerciseMsg EditExerciseForm.Msg
     | ToggleValidated Exercise.Id
+    | ExercisePressEvent ExercisePressEvent
+
+
+type ExercisePressEvent
+    = ExercisePress Exercise ( Float, Float )
+    | ExerciseRelease
+    | ExerciseMove ( Float, Float )
+    | ExerciseTimeout Exercise Int
+    | ResetPressedExercise
 
 
 goToMainPageCmd : LoadedModel -> Cmd Msg
@@ -207,6 +225,9 @@ updateLoading msg model =
 
         ToggleValidated _ ->
             Debug.log "ToggleValidated should not be called in the loading model" ( Loading model, Cmd.none )
+
+        ExercisePressEvent _ ->
+            Debug.log "ExercisePressEvent should not be called in the loading model" ( Loading model, Cmd.none )
 
 
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
@@ -433,6 +454,56 @@ updateLoaded msg model =
             in
             ( Loaded { model | store = updatedStore }, Storage.save updatedStore )
 
+        ExercisePressEvent event ->
+            case event of
+                ExercisePress exercise pos ->
+                    ( Loaded
+                        { model
+                            | pressingExercise = Just exercise
+                            , pressingStartPos = pos
+                            , pressingIndex = model.pressingIndex + 1
+                            , pressedExercise = Nothing
+                        }
+                    , Process.sleep 750 |> Task.perform (\_ -> ExercisePressEvent (ExerciseTimeout exercise (model.pressingIndex + 1)))
+                    )
+
+                ExerciseRelease ->
+                    ( Loaded { model | pressingExercise = Nothing }
+                    , Cmd.none
+                    )
+
+                ExerciseMove pos ->
+                    let
+                        newModel =
+                            if distance pos model.pressingStartPos > 50 then
+                                { model | pressingExercise = Nothing }
+
+                            else
+                                model
+                    in
+                    ( Loaded newModel, Cmd.none )
+
+                ExerciseTimeout exercise index ->
+                    if model.pressingExercise == Just exercise && model.pressingIndex == index then
+                        ( Loaded
+                            { model
+                                | pressedExercise = Just exercise
+                                , pressingExercise = Nothing
+                            }
+                        , Cmd.none
+                        )
+
+                    else
+                        ( Loaded model, Cmd.none )
+
+                ResetPressedExercise ->
+                    ( Loaded { model | pressedExercise = Nothing }, Cmd.none )
+
+
+distance : ( Float, Float ) -> ( Float, Float ) -> Float
+distance p1 p2 =
+    (Tuple.first p1 - Tuple.first p2) ^ 2 + (Tuple.second p1 - Tuple.second p2) ^ 2 |> sqrt
+
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
 updateUrlRequested urlRequest model key =
@@ -467,6 +538,10 @@ loadingToLoaded loading =
                 , store = store
                 , seed = seed
                 , today = today
+                , pressingExercise = Nothing
+                , pressedExercise = Nothing
+                , pressingIndex = 0
+                , pressingStartPos = ( 0, 0 )
                 }
 
         _ ->
@@ -475,7 +550,10 @@ loadingToLoaded loading =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Storage.receive ReceiveStore
+    Sub.batch
+        [ Storage.receive ReceiveStore
+        , bodyMouseDown (\_ -> ExercisePressEvent ResetPressedExercise)
+        ]
 
 
 
@@ -536,7 +614,7 @@ viewLoaded model =
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
 
         ShowDay date ->
-            viewDay date (Storage.getExercises model.store)
+            viewDay date (Storage.getExercises model.store) model.pressingExercise model.pressedExercise
 
 
 viewNotFound : Html Msg
@@ -699,8 +777,8 @@ validatedCheckBox checked attributes =
         ]
 
 
-viewExercise : Exercise -> Html Msg
-viewExercise exercise =
+viewExercise : Exercise -> Bool -> Bool -> Html Msg
+viewExercise exercise pressing pressed =
     let
         title =
             Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
@@ -719,7 +797,30 @@ viewExercise exercise =
                     ++ plural words.repetition exercise.repetitionsNumber
                 )
     in
-    Html.div [ Html.Attributes.class "mb-3" ]
+    Html.div
+        [ Html.Attributes.class "p-2"
+        , Touch.onWithOptions "touchstart"
+            { stopPropagation = False, preventDefault = False }
+            (\event -> ExercisePressEvent (ExercisePress exercise (touchCoordinates event)))
+        , Touch.onWithOptions "touchmove"
+            { stopPropagation = False, preventDefault = False }
+            (\event -> ExercisePressEvent (ExerciseMove (touchCoordinates event)))
+        , Touch.onEnd (\_ -> ExercisePressEvent ExerciseRelease)
+        , Html.Attributes.style "background-color"
+            (case ( pressing, pressed ) of
+                ( True, False ) ->
+                    "#f5f5f5"
+
+                ( False, True ) ->
+                    "#b3e5fc"
+
+                ( True, True ) ->
+                    "#81d4fa"
+
+                ( False, False ) ->
+                    "rgba(0,0,0,0)"
+            )
+        ]
         [ row []
             [ col
                 [ Html.Events.onClick (ToggleValidated exercise.id)
@@ -737,6 +838,13 @@ viewExercise exercise =
         ]
 
 
+touchCoordinates : Touch.Event -> ( Float, Float )
+touchCoordinates touchEvent =
+    List.head touchEvent.changedTouches
+        |> Maybe.map .clientPos
+        |> Maybe.withDefault ( 0, 0 )
+
+
 viewCreateExercise : CreateExerciseForm.Form -> Html Msg
 viewCreateExercise form =
     Html.map CreateExerciseMsg (CreateExerciseForm.view form)
@@ -747,8 +855,8 @@ viewEditExercise form =
     Html.map EditExerciseMsg (EditExerciseForm.view form)
 
 
-viewDay : Date -> List Exercise -> Html Msg
-viewDay date exercises =
+viewDay : Date -> List Exercise -> Maybe Exercise -> Maybe Exercise -> Html Msg
+viewDay date exercises pressingExercise pressedExercise =
     let
         filteredExercises =
             List.filter (\exercise -> exercise.date == date) exercises
@@ -760,6 +868,17 @@ viewDay date exercises =
                 [ Html.text "No exercises!" ]
 
              else
-                List.map viewExercise filteredExercises
+                List.map
+                    (\e ->
+                        let
+                            pressing =
+                                pressingExercise == Just e
+
+                            pressed =
+                                pressedExercise == Just e
+                        in
+                        viewExercise e pressing pressed
+                    )
+                    filteredExercises
             )
         )

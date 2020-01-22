@@ -761,28 +761,22 @@ viewExercise exercise pressing pressed =
                 )
     in
     Html.div
-        (List.append
-            [ Html.Attributes.class "p-2"
-            , Html.Attributes.style "background-color"
-                (case ( pressing, pressed ) of
-                    ( True, False ) ->
-                        "#f5f5f5"
+        [ Html.Attributes.class "p-2"
+        , Html.Attributes.style "background-color"
+            (case ( pressing, pressed ) of
+                ( True, False ) ->
+                    "#f5f5f5"
 
-                    ( False, True ) ->
-                        "#b3e5fc"
+                ( False, True ) ->
+                    "#b3e5fc"
 
-                    ( True, True ) ->
-                        "#81d4fa"
+                ( True, True ) ->
+                    "#81d4fa"
 
-                    ( False, False ) ->
-                        "rgba(0,0,0,0)"
-                )
-            ]
-            (Gestures.longPress
-                exercise
-                (\e -> ExerciseLongPress e)
+                ( False, False ) ->
+                    "rgba(0,0,0,0)"
             )
-        )
+        ]
         [ row []
             [ col
                 [ Html.Events.onClick (ToggleValidated exercise.id)
@@ -790,7 +784,14 @@ viewExercise exercise pressing pressed =
                 , Html.Attributes.class "d-flex justify-content-center align-items-center"
                 ]
                 checkBox
-            , col [ Html.Attributes.class "col-8 pl-0" ]
+            , col
+                (List.append
+                    [ Html.Attributes.class "col-8 pl-0" ]
+                    (Gestures.longPress
+                        exercise
+                        (\e -> ExerciseLongPress e)
+                    )
+                )
                 (Html.div []
                     [ row [] [ col [] title ]
                     , row [] [ col [] text ]

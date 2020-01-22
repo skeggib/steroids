@@ -632,7 +632,7 @@ viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html
 viewDaysList days header buttons =
     viewPage
         header
-        False
+        Nothing
         (Html.div
             []
             (List.append
@@ -652,22 +652,27 @@ viewDaysList days header buttons =
         )
 
 
-viewPage : String -> Bool -> Html Msg -> Html Msg
-viewPage header displayActionBar content =
+viewPage : String -> Maybe (List (Html Msg)) -> Html Msg -> Html Msg
+viewPage header actionBarContent content =
+    let
+        actionBar =
+            case actionBarContent of
+                Just justActionBarContent ->
+                    Html.div
+                        [ Html.Attributes.class "fixed-top p-3 action-bar" ]
+                        justActionBarContent
+
+                Nothing ->
+                    Html.div
+                        [ Html.Attributes.class "fixed-top p-3 action-bar hidden" ]
+                        []
+    in
     Html.div []
         [ Html.div [ Html.Attributes.class "container" ]
             [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
             , content
             ]
-        , Html.div
-            [ Html.Attributes.class "fixed-top p-3 action-bar"
-            , Html.Attributes.classList [ ( "hidden", not displayActionBar ) ]
-            ]
-            [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
-                [ Html.text "delete" ]
-            , Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
-                [ Html.text "edit" ]
-            ]
+        , actionBar
         ]
 
 
@@ -810,17 +815,24 @@ viewDay date exercises pressingExercise pressedExercise =
         filteredExercises =
             List.filter (\exercise -> exercise.date == date) exercises
 
-        displayActionBar =
-            case pressedExercise of
-                Just _ ->
-                    True
-
-                Nothing ->
-                    False
+        actionBarContent =
+            Maybe.map
+                (\justPressedExercise ->
+                    [ Html.a [ Html.Attributes.href (Route.toLink (Route.DeleteExercise justPressedExercise.id)) ]
+                        [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
+                            [ Html.text "delete" ]
+                        ]
+                    , Html.a [ Html.Attributes.href (Route.toLink (Route.EditExercise justPressedExercise.id)) ]
+                        [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
+                            [ Html.text "edit" ]
+                        ]
+                    ]
+                )
+                pressedExercise
     in
     viewPage
         (Helpers.dateToLongString date)
-        displayActionBar
+        actionBarContent
         (Html.div
             []
             (if List.length filteredExercises == 0 then

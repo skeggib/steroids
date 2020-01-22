@@ -7,12 +7,15 @@ import CreateExerciseForm
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
+import EditExerciseForm
 import ExerciseVersion2 as Exercise exposing (Exercise)
 import Form
+import Gestures
 import Helpers
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
+import Html.Events.Extra.Mouse as Mouse
 import Json.Decode
 import Json.Encode
 import Random
@@ -65,9 +68,11 @@ type alias LoadedModel =
     , url : Url.Url
     , route : Route
     , createExerciseForm : CreateExerciseForm.Form
+    , editExerciseForm : Maybe EditExerciseForm.Form
     , store : Store
     , seed : Random.Seed
     , today : Date
+    , longPress : Gestures.LongPressModel Exercise
     }
 
 
@@ -108,7 +113,14 @@ type Msg
     | CreateSeed Time.Posix
     | ReceiveToday Date
     | CreateExerciseMsg CreateExerciseForm.Msg
+    | EditExerciseMsg EditExerciseForm.Msg
     | ToggleValidated Exercise.Id
+    | ExerciseLongPress (Gestures.LongPressEvent Exercise)
+
+
+goToMainPageCmd : LoadedModel -> Cmd Msg
+goToMainPageCmd model =
+    Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -194,8 +206,14 @@ updateLoading msg model =
         CreateExerciseMsg _ ->
             Debug.log "CreateExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
+        EditExerciseMsg _ ->
+            Debug.log "EditExerciseMsg should not be called in the loading model" ( Loading model, Cmd.none )
+
         ToggleValidated _ ->
             Debug.log "ToggleValidated should not be called in the loading model" ( Loading model, Cmd.none )
+
+        ExerciseLongPress _ ->
+            Debug.log "ExercisePressEvent should not be called in the loading model" ( Loading model, Cmd.none )
 
 
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
@@ -229,7 +247,7 @@ updateLoaded msg model =
                         }
                     , Cmd.batch
                         [ Storage.save newStore
-                        , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+                        , goToMainPageCmd model
                         ]
                     )
 
@@ -242,6 +260,26 @@ updateLoaded msg model =
                         }
                     , Cmd.none
                     )
+
+                EditExercise id ->
+                    let
+                        maybeExercise =
+                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
+                                |> List.head
+                    in
+                    case maybeExercise of
+                        Just exercise ->
+                            ( Loaded
+                                { model
+                                    | editExerciseForm = Just (EditExerciseForm.init exercise)
+                                    , url = url
+                                    , route = route
+                                }
+                            , Cmd.none
+                            )
+
+                        Nothing ->
+                            ( Loaded { model | url = url, route = route }, Cmd.none )
 
                 _ ->
                     ( Loaded { model | url = url, route = route }, Cmd.none )
@@ -294,7 +332,7 @@ updateLoaded msg model =
                                         }
                                     , Cmd.batch
                                         [ Storage.save newStore
-                                        , Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+                                        , goToMainPageCmd model
                                         ]
                                     )
 
@@ -302,7 +340,65 @@ updateLoaded msg model =
                                     ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
 
                         CreateExerciseForm.Cancel ->
-                            ( Loaded model, Nav.pushUrl model.key (Route.toLink Route.ListNextDays) )
+                            ( Loaded model, goToMainPageCmd model )
+
+                _ ->
+                    ( Loaded model, Cmd.none )
+
+        EditExerciseMsg editFormMsg ->
+            case model.route of
+                EditExercise id ->
+                    let
+                        maybeExercise =
+                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
+                                |> List.head
+                    in
+                    case maybeExercise of
+                        Just exercise ->
+                            case editFormMsg of
+                                EditExerciseForm.FormMsg formMsg ->
+                                    let
+                                        newForm =
+                                            case model.editExerciseForm of
+                                                Just form ->
+                                                    EditExerciseForm.update formMsg form
+
+                                                Nothing ->
+                                                    EditExerciseForm.init exercise
+                                    in
+                                    case ( formMsg, EditExerciseForm.getOutput newForm exercise ) of
+                                        ( Form.Submit, Just updatedExercise ) ->
+                                            let
+                                                newStore =
+                                                    Storage.setExercises
+                                                        (List.map
+                                                            (\e ->
+                                                                if e.id == id then
+                                                                    updatedExercise
+
+                                                                else
+                                                                    e
+                                                            )
+                                                            (Storage.getExercises model.store)
+                                                        )
+                                                        model.store
+                                            in
+                                            ( Loaded
+                                                { model | store = newStore }
+                                            , Cmd.batch
+                                                [ Storage.save newStore
+                                                , goToMainPageCmd model
+                                                ]
+                                            )
+
+                                        _ ->
+                                            ( Loaded { model | editExerciseForm = Just newForm }, Cmd.none )
+
+                                EditExerciseForm.Cancel ->
+                                    ( Loaded model, goToMainPageCmd model )
+
+                        Nothing ->
+                            ( Loaded model, goToMainPageCmd model )
 
                 _ ->
                     ( Loaded model, Cmd.none )
@@ -344,6 +440,16 @@ updateLoaded msg model =
             in
             ( Loaded { model | store = updatedStore }, Storage.save updatedStore )
 
+        ExerciseLongPress event ->
+            let
+                tuple =
+                    Gestures.updateLongPress
+                        event
+                        model.longPress
+                        (\e -> ExerciseLongPress e)
+            in
+            ( Loaded { model | longPress = Tuple.first tuple }, Tuple.second tuple )
+
 
 updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
 updateUrlRequested urlRequest model key =
@@ -374,9 +480,11 @@ loadingToLoaded loading =
                 , url = loading.url
                 , route = parseRoute loading.url
                 , createExerciseForm = CreateExerciseForm.init
+                , editExerciseForm = Nothing
                 , store = store
                 , seed = seed
                 , today = today
+                , longPress = Gestures.initLongPress
                 }
 
         _ ->
@@ -385,7 +493,9 @@ loadingToLoaded loading =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Storage.receive ReceiveStore
+    Sub.batch
+        [ Storage.receive ReceiveStore
+        ]
 
 
 
@@ -434,11 +544,19 @@ viewLoaded model =
         CreateExercise ->
             viewCreateExercise model.createExerciseForm
 
+        EditExercise _ ->
+            case model.editExerciseForm of
+                Just form ->
+                    viewEditExercise form
+
+                Nothing ->
+                    viewNotFound
+
         DeleteExercise id ->
             Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
 
         ShowDay date ->
-            viewDay date (Storage.getExercises model.store)
+            viewDay date (Storage.getExercises model.store) model.longPress.pressing model.longPress.pressed
 
 
 viewNotFound : Html Msg
@@ -511,6 +629,7 @@ viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html
 viewDaysList days header buttons =
     viewPage
         header
+        Nothing
         (Html.div
             []
             (List.append
@@ -530,11 +649,31 @@ viewDaysList days header buttons =
         )
 
 
-viewPage : String -> Html Msg -> Html Msg
-viewPage header content =
-    Html.div [ Html.Attributes.class "container" ]
-        [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
-        , content
+viewPage : String -> Maybe (List (Html Msg)) -> Html Msg -> Html Msg
+viewPage header actionBarContent content =
+    let
+        actionBar =
+            case actionBarContent of
+                Just justActionBarContent ->
+                    Html.div
+                        [ Html.Attributes.class "fixed-top p-3 action-bar" ]
+                        justActionBarContent
+
+                Nothing ->
+                    Html.div
+                        [ Html.Attributes.class "fixed-top p-3 action-bar hidden" ]
+                        []
+    in
+    Html.div [ Html.Attributes.style "min-height" "100vh" ]
+        [ Html.div
+            [ Html.Attributes.class "container"
+            , Html.Attributes.style "min-height" "100vh"
+            , Mouse.onDown (\_ -> ExerciseLongPress Gestures.Reset)
+            ]
+            [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
+            , content
+            ]
+        , actionBar
         ]
 
 
@@ -601,8 +740,8 @@ validatedCheckBox checked attributes =
         ]
 
 
-viewExercise : Exercise -> Html Msg
-viewExercise exercise =
+viewExercise : Exercise -> Bool -> Bool -> Html Msg
+viewExercise exercise pressing pressed =
     let
         title =
             Html.h4 [ Html.Attributes.class "mb-0" ] [ Html.text exercise.name ]
@@ -621,7 +760,23 @@ viewExercise exercise =
                     ++ plural words.repetition exercise.repetitionsNumber
                 )
     in
-    Html.div [ Html.Attributes.class "mb-3" ]
+    Html.div
+        [ Html.Attributes.class "p-2"
+        , Html.Attributes.style "background-color"
+            (case ( pressing, pressed ) of
+                ( True, False ) ->
+                    "#f5f5f5"
+
+                ( False, True ) ->
+                    "#b3e5fc"
+
+                ( True, True ) ->
+                    "#81d4fa"
+
+                ( False, False ) ->
+                    "rgba(0,0,0,0)"
+            )
+        ]
         [ row []
             [ col
                 [ Html.Events.onClick (ToggleValidated exercise.id)
@@ -629,7 +784,14 @@ viewExercise exercise =
                 , Html.Attributes.class "d-flex justify-content-center align-items-center"
                 ]
                 checkBox
-            , col [ Html.Attributes.class "col-8 pl-0" ]
+            , col
+                (List.append
+                    [ Html.Attributes.class "col-8 pl-0" ]
+                    (Gestures.longPress
+                        exercise
+                        (\e -> ExerciseLongPress e)
+                    )
+                )
                 (Html.div []
                     [ row [] [ col [] title ]
                     , row [] [ col [] text ]
@@ -644,19 +806,52 @@ viewCreateExercise form =
     Html.map CreateExerciseMsg (CreateExerciseForm.view form)
 
 
-viewDay : Date -> List Exercise -> Html Msg
-viewDay date exercises =
+viewEditExercise : EditExerciseForm.Form -> Html Msg
+viewEditExercise form =
+    Html.map EditExerciseMsg (EditExerciseForm.view form)
+
+
+viewDay : Date -> List Exercise -> Maybe Exercise -> Maybe Exercise -> Html Msg
+viewDay date exercises pressingExercise pressedExercise =
     let
         filteredExercises =
             List.filter (\exercise -> exercise.date == date) exercises
+
+        actionBarContent =
+            Maybe.map
+                (\justPressedExercise ->
+                    [ Html.a [ Html.Attributes.href (Route.toLink (Route.DeleteExercise justPressedExercise.id)) ]
+                        [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
+                            [ Html.text "delete" ]
+                        ]
+                    , Html.a [ Html.Attributes.href (Route.toLink (Route.EditExercise justPressedExercise.id)) ]
+                        [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
+                            [ Html.text "edit" ]
+                        ]
+                    ]
+                )
+                pressedExercise
     in
-    viewPage (Helpers.dateToLongString date)
+    viewPage
+        (Helpers.dateToLongString date)
+        actionBarContent
         (Html.div
             []
             (if List.length filteredExercises == 0 then
                 [ Html.text "No exercises!" ]
 
              else
-                List.map viewExercise filteredExercises
+                List.map
+                    (\e ->
+                        let
+                            pressing =
+                                pressingExercise == Just e
+
+                            pressed =
+                                pressedExercise == Just e
+                        in
+                        viewExercise e pressing pressed
+                    )
+                    filteredExercises
             )
         )

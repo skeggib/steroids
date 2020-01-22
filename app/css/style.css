@@ -1,0 +1,15 @@
+html, body
+{
+    min-height: 100vh;
+}
+
+.action-bar
+{
+    background-color: white;
+    border-bottom: 1px solid darkgray;
+}
+
+.action-bar.hidden
+{
+    display: none;
+}

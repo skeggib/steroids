@@ -1,8 +1,8 @@
-module CreateExerciseForm exposing (Form, Msg(..), getOutput, init, isSubmit, update, validate, view)
+module EditExerciseForm exposing (Form, Msg(..), getOutput, init, update, view)
 
 import Bootstrap exposing (col, row)
 import Date
-import ExerciseVersion2 as Exercise
+import ExerciseVersion2 as ExerciseModel
 import Form exposing (getFieldAsString)
 import Form.Error exposing (ErrorValue(..), value)
 import Form.Field exposing (asString)
@@ -11,7 +11,6 @@ import Form.Validate exposing (Validation, andMap, andThen, field, int, minInt, 
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
-import Random
 
 
 type alias Form =
@@ -35,24 +34,15 @@ type Msg
     | Cancel
 
 
-isSubmit : Msg -> Bool
-isSubmit msg =
-    case msg of
-        FormMsg formMsg ->
-            case formMsg of
-                Form.Submit ->
-                    True
-
-                _ ->
-                    False
-
-        _ ->
-            False
-
-
-init : Form
-init =
-    Form.initial [] validate
+init : ExerciseModel.Exercise -> Form
+init exercise =
+    Form.initial
+        [ ( "name", Form.Field.string exercise.name )
+        , ( "setsNumber", Form.Field.string (String.fromInt exercise.setsNumber) )
+        , ( "repetitionsNumber", Form.Field.string (String.fromInt exercise.repetitionsNumber) )
+        , ( "date", Form.Field.string (Date.toIsoString exercise.date) )
+        ]
+        validate
 
 
 update : Form.Msg -> Form -> Form
@@ -98,26 +88,20 @@ validateDate field =
             Err (value Empty)
 
 
-getOutput : Form -> Random.Seed -> Maybe ( Exercise.Exercise, Random.Seed )
-getOutput form seed =
-    Maybe.map (formExerciseToExercise seed) (Form.getOutput form)
+getOutput : Form -> ExerciseModel.Exercise -> Maybe ExerciseModel.Exercise
+getOutput form exercise =
+    Maybe.map (formExerciseToExercise exercise) (Form.getOutput form)
 
 
-formExerciseToExercise : Random.Seed -> Exercise -> ( Exercise.Exercise, Random.Seed )
-formExerciseToExercise seed formExercise =
-    let
-        idTuple =
-            Exercise.createId seed
-    in
-    ( { id = Tuple.first idTuple
-      , name = formExercise.name
-      , setsNumber = formExercise.setsNumber
-      , repetitionsNumber = formExercise.repetitionsNumber
-      , date = formExercise.date
-      , validated = False
-      }
-    , Tuple.second idTuple
-    )
+formExerciseToExercise : ExerciseModel.Exercise -> Exercise -> ExerciseModel.Exercise
+formExerciseToExercise exercise formExercise =
+    { id = exercise.id
+    , name = formExercise.name
+    , setsNumber = formExercise.setsNumber
+    , repetitionsNumber = formExercise.repetitionsNumber
+    , date = formExercise.date
+    , validated = exercise.validated
+    }
 
 
 view : Form -> Html Msg
@@ -146,7 +130,7 @@ view form =
         , row [ Html.Attributes.class "mt-3" ]
             [ col []
                 (Html.div []
-                    [ Html.button [ Html.Attributes.class "btn btn-primary float-right ml-2", Html.Events.onClick (FormMsg Form.Submit) ] [ Html.text "Create" ]
+                    [ Html.button [ Html.Attributes.class "btn btn-primary float-right ml-2", Html.Events.onClick (FormMsg Form.Submit) ] [ Html.text "Update" ]
                     , Html.button [ Html.Attributes.class "btn btn-secondary float-right", Html.Events.onClick Cancel ] [ Html.text "Cancel" ]
                     ]
                 )

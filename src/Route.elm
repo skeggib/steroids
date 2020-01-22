@@ -10,6 +10,7 @@ type Route
     = ListNextDays
     | ListPastDays
     | CreateExercise
+    | EditExercise Exercise.Id
     | DeleteExercise Exercise.Id
     | ShowDay Date
     | NotFound
@@ -27,6 +28,9 @@ toLink route =
         CreateExercise ->
             "/exercises/create"
 
+        EditExercise id ->
+            "/exercises/edit/" ++ Exercise.idToString id
+
         DeleteExercise id ->
             "/exercises/delete/" ++ Exercise.idToString id
 
@@ -43,6 +47,7 @@ routeParser =
         [ map ListNextDays top
         , map ListPastDays (s "past")
         , map CreateExercise (s "exercises" </> s "create")
+        , map EditExercise (s "exercises" </> s "edit" </> custom "exerciseId" Exercise.idFromString)
         , map DeleteExercise (s "exercises" </> s "delete" </> custom "exerciseId" Exercise.idFromString)
         , map ShowDay (s "day" </> custom "date" dateFromString)
         ]

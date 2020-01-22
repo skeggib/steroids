@@ -1,6 +1,7 @@
 module Gestures exposing (LongPressEvent(..), LongPressModel, initLongPress, longPress, updateLongPress)
 
 import Html
+import Html.Events.Extra.Mouse as Mouse
 import Html.Events.Extra.Touch as Touch
 import Process
 import Task
@@ -15,6 +16,9 @@ longPress object converter =
         { stopPropagation = False, preventDefault = False }
         (\event -> Move (touchCoordinates event) |> converter)
     , Touch.onEnd (\_ -> Release |> converter)
+    , Mouse.onDown (\event -> Press object (mouseCoordinates event) |> converter)
+    , Mouse.onMove (\event -> Move (mouseCoordinates event) |> converter)
+    , Mouse.onUp (\_ -> Release |> converter)
     ]
 
 
@@ -27,10 +31,15 @@ type LongPressEvent object
 
 
 touchCoordinates : Touch.Event -> ( Float, Float )
-touchCoordinates touchEvent =
-    List.head touchEvent.changedTouches
+touchCoordinates event =
+    List.head event.changedTouches
         |> Maybe.map .clientPos
         |> Maybe.withDefault ( 0, 0 )
+
+
+mouseCoordinates : Mouse.Event -> ( Float, Float )
+mouseCoordinates event =
+    event.offsetPos
 
 
 type alias LongPressModel object =

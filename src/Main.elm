@@ -1,4 +1,4 @@
-port module Main exposing (bodyMouseDown, main)
+module Main exposing (main)
 
 import Bootstrap exposing (col, row)
 import Browser
@@ -15,6 +15,7 @@ import Helpers
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
+import Html.Events.Extra.Mouse as Mouse
 import Json.Decode
 import Json.Encode
 import Random
@@ -36,9 +37,6 @@ main =
         , onUrlRequest = UrlRequested
         , onUrlChange = UrlChanged
         }
-
-
-port bodyMouseDown : (() -> msg) -> Sub msg
 
 
 
@@ -497,7 +495,6 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ Storage.receive ReceiveStore
-        , bodyMouseDown (\_ -> ExerciseLongPress Gestures.Reset)
         ]
 
 
@@ -667,8 +664,12 @@ viewPage header actionBarContent content =
                         [ Html.Attributes.class "fixed-top p-3 action-bar hidden" ]
                         []
     in
-    Html.div []
-        [ Html.div [ Html.Attributes.class "container" ]
+    Html.div [ Html.Attributes.style "min-height" "100vh" ]
+        [ Html.div
+            [ Html.Attributes.class "container"
+            , Html.Attributes.style "min-height" "100vh"
+            , Mouse.onDown (\_ -> ExerciseLongPress Gestures.Reset)
+            ]
             [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
             , content
             ]

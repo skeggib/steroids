@@ -632,6 +632,7 @@ viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html
 viewDaysList days header buttons =
     viewPage
         header
+        False
         (Html.div
             []
             (List.append
@@ -651,11 +652,22 @@ viewDaysList days header buttons =
         )
 
 
-viewPage : String -> Html Msg -> Html Msg
-viewPage header content =
-    Html.div [ Html.Attributes.class "container" ]
-        [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
-        , content
+viewPage : String -> Bool -> Html Msg -> Html Msg
+viewPage header displayActionBar content =
+    Html.div []
+        [ Html.div [ Html.Attributes.class "container" ]
+            [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
+            , content
+            ]
+        , Html.div
+            [ Html.Attributes.class "fixed-top p-3 action-bar"
+            , Html.Attributes.classList [ ( "hidden", not displayActionBar ) ]
+            ]
+            [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
+                [ Html.text "delete" ]
+            , Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
+                [ Html.text "edit" ]
+            ]
         ]
 
 
@@ -797,8 +809,18 @@ viewDay date exercises pressingExercise pressedExercise =
     let
         filteredExercises =
             List.filter (\exercise -> exercise.date == date) exercises
+
+        displayActionBar =
+            case pressedExercise of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
     in
-    viewPage (Helpers.dateToLongString date)
+    viewPage
+        (Helpers.dateToLongString date)
+        displayActionBar
         (Html.div
             []
             (if List.length filteredExercises == 0 then

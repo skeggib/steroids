@@ -24,7 +24,7 @@ import StorageVersion2 as Storage exposing (Store)
 import Task
 import Time
 import Url
-import Words exposing (plural, words)
+import Words exposing (plural, strings, words)
 
 
 main : Program () Model Msg
@@ -504,7 +504,7 @@ subscriptions _ =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Steroids"
+    { title = strings.applicationName
     , body =
         [ case model of
             Loading loadingModel ->
@@ -520,13 +520,13 @@ viewLoading : LoadingModel -> Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
         ( LoadingError _, _ ) ->
-            Html.text "Cannot load seed"
+            Html.text strings.errorSeedLoading
 
         ( _, LoadingError error ) ->
-            Html.text ("Cannot load store: " ++ error)
+            Html.text (strings.errorStoreLoading ++ error)
 
         ( _, _ ) ->
-            Html.text "Loading..."
+            Html.text strings.loading
 
 
 viewLoaded : LoadedModel -> Html Msg
@@ -553,7 +553,7 @@ viewLoaded model =
                     viewNotFound
 
         DeleteExercise id ->
-            Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
+            Html.text (strings.deletingExercise (Exercise.idToString id))
 
         ShowDay date ->
             viewDay date (Storage.getExercises model.store) model.longPress.pressing model.longPress.pressed
@@ -561,7 +561,7 @@ viewLoaded model =
 
 viewNotFound : Html Msg
 viewNotFound =
-    Html.text "Not found"
+    Html.text strings.pageNotFound
 
 
 groupExercisesByDay : List Exercise -> Dict Int (List Exercise)
@@ -588,15 +588,15 @@ viewNextDays today exercises =
                 [ Html.Attributes.href (Route.toLink Route.CreateExercise)
                 , Html.Attributes.class "btn btn-primary float-right ml-2"
                 ]
-                [ Html.text "Create an exercise" ]
+                [ Html.text strings.actionCreateExercise ]
             , Html.a
                 [ Html.Attributes.href (Route.toLink Route.ListPastDays)
                 , Html.Attributes.class "btn btn-light float-right"
                 ]
-                [ Html.text "View past exercises" ]
+                [ Html.text strings.actionViewPastExercises ]
             ]
     in
-    viewDaysList days "Exercises" buttons
+    viewDaysList days strings.titleNextDaysPage buttons
 
 
 viewPastDays : Date -> List Exercise -> Html Msg
@@ -619,10 +619,10 @@ viewPastDays today exercises =
                 [ Html.Attributes.href (Route.toLink Route.ListNextDays)
                 , Html.Attributes.class "btn btn-light float-right"
                 ]
-                [ Html.text "Go back to exercises list" ]
+                [ Html.text strings.actionGoBackToNextDays ]
             ]
     in
-    viewDaysList days "Past exercises" buttons
+    viewDaysList days strings.titlePastDaysPage buttons
 
 
 viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html Msg
@@ -640,7 +640,7 @@ viewDaysList days header buttons =
                     ]
                 ]
                 (if List.isEmpty days then
-                    [ Html.div [ Html.Attributes.class "d-flex justify-content-center mt-3" ] [ Html.text "No exercises!" ] ]
+                    [ Html.div [ Html.Attributes.class "d-flex justify-content-center mt-3" ] [ Html.text strings.noExercises ] ]
 
                  else
                     List.map viewDayLink days
@@ -699,16 +699,7 @@ viewDayLink ( date, exercises ) =
                 , Html.br [] []
                 , Html.span
                     [ Html.Attributes.class "text-muted" ]
-                    [ Html.text
-                        (String.fromInt exercisesLength
-                            ++ " "
-                            ++ plural words.exercise exercisesLength
-                            ++ " ("
-                            ++ String.fromInt doneNumber
-                            ++ "/"
-                            ++ String.fromInt exercisesLength
-                            ++ " done)"
-                        )
+                    [ Html.text (strings.numberOfExercisesInDay doneNumber exercisesLength)
                     ]
                 ]
                 |> col []
@@ -838,7 +829,7 @@ viewDay date exercises pressingExercise pressedExercise =
         (Html.div
             []
             (if List.length filteredExercises == 0 then
-                [ Html.text "No exercises!" ]
+                [ Html.text strings.noExercises ]
 
              else
                 List.map

@@ -1,6 +1,6 @@
 module Main exposing (main)
 
-import Bootstrap exposing (col, row)
+import Bootstrap exposing (ButtonStyle(..), buttonHyperlink, col, row)
 import Browser
 import Browser.Navigation as Nav
 import CreateExerciseForm
@@ -584,16 +584,16 @@ viewNextDays today exercises =
                 |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
 
         buttons =
-            [ Html.a
-                [ Html.Attributes.href (Route.toLink Route.CreateExercise)
-                , Html.Attributes.class "btn btn-primary float-right ml-2"
-                ]
-                [ Html.text strings.actionCreateExercise ]
-            , Html.a
-                [ Html.Attributes.href (Route.toLink Route.ListPastDays)
-                , Html.Attributes.class "btn btn-light float-right"
-                ]
-                [ Html.text strings.actionViewPastExercises ]
+            [ buttonHyperlink
+                Primary
+                [ Html.Attributes.class "float-right ml-2" ]
+                (Route.toLink Route.CreateExercise)
+                strings.actionCreateExercise
+            , buttonHyperlink
+                Light
+                [ Html.Attributes.class "float-right" ]
+                (Route.toLink Route.ListPastDays)
+                strings.actionViewPastExercises
             ]
     in
     viewDaysList days strings.titleNextDaysPage buttons
@@ -615,11 +615,11 @@ viewPastDays today exercises =
                 |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
 
         buttons =
-            [ Html.a
-                [ Html.Attributes.href (Route.toLink Route.ListNextDays)
-                , Html.Attributes.class "btn btn-light float-right"
-                ]
-                [ Html.text strings.actionGoBackToNextDays ]
+            [ buttonHyperlink
+                Light
+                [ Html.Attributes.class "float-right" ]
+                (Route.toLink Route.ListNextDays)
+                strings.actionGoBackToNextDays
             ]
     in
     viewDaysList days strings.titlePastDaysPage buttons

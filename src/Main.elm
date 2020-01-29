@@ -19,7 +19,7 @@ import Html.Events.Extra.Mouse as Mouse
 import Json.Decode
 import Json.Encode
 import Random
-import Route exposing (Route(..), parseRoute)
+import Router exposing (Route(..), parseRoute)
 import StorageVersion2 as Storage exposing (Store)
 import Task
 import Time
@@ -120,7 +120,7 @@ type Msg
 
 goToMainPageCmd : LoadedModel -> Cmd Msg
 goToMainPageCmd model =
-    Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+    Nav.pushUrl model.key (Router.toLink Router.ListNextDays)
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -587,12 +587,12 @@ viewNextDays today exercises =
             [ buttonHyperlink
                 Primary
                 [ Html.Attributes.class "float-right ml-2" ]
-                (Route.toLink Route.CreateExercise)
+                (Router.toLink Router.CreateExercise)
                 strings.actionCreateExercise
             , buttonHyperlink
                 Light
                 [ Html.Attributes.class "float-right" ]
-                (Route.toLink Route.ListPastDays)
+                (Router.toLink Router.ListPastDays)
                 strings.actionViewPastExercises
             ]
     in
@@ -618,7 +618,7 @@ viewPastDays today exercises =
             [ buttonHyperlink
                 Light
                 [ Html.Attributes.class "float-right" ]
-                (Route.toLink Route.ListNextDays)
+                (Router.toLink Router.ListNextDays)
                 strings.actionGoBackToNextDays
             ]
     in
@@ -691,7 +691,7 @@ viewDayLink ( date, exercises ) =
     in
     row [ Html.Attributes.class "my-3" ]
         [ Html.a
-            [ Html.Attributes.href (Route.ShowDay date |> Route.toLink), Html.Attributes.class "dayLink" ]
+            [ Html.Attributes.href (Router.ShowDay date |> Router.toLink), Html.Attributes.class "dayLink" ]
             [ Html.span []
                 [ Html.h3
                     [ Html.Attributes.class "d-inline mr-3" ]
@@ -811,11 +811,11 @@ viewDay date exercises pressingExercise pressedExercise =
         actionBarContent =
             Maybe.map
                 (\justPressedExercise ->
-                    [ Html.a [ Html.Attributes.href (Route.toLink (Route.DeleteExercise justPressedExercise.id)) ]
+                    [ Html.a [ Html.Attributes.href (Router.toLink (Router.DeleteExercise justPressedExercise.id)) ]
                         [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
                             [ Html.text "delete" ]
                         ]
-                    , Html.a [ Html.Attributes.href (Route.toLink (Route.EditExercise justPressedExercise.id)) ]
+                    , Html.a [ Html.Attributes.href (Router.toLink (Router.EditExercise justPressedExercise.id)) ]
                         [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
                             [ Html.text "edit" ]
                         ]

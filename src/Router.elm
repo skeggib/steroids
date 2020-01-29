@@ -1,4 +1,4 @@
-module Route exposing (Route(..), parseRoute, toLink)
+module Router exposing (Route(..), parseRoute, toLink)
 
 import Date exposing (Date)
 import ExerciseVersion2 as Exercise

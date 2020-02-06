@@ -34,8 +34,8 @@ main =
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , onUrlRequest = UrlRequested
-        , onUrlChange = UrlChanged
+        , onUrlRequest = \request -> RouterMsg (Router.onUrlRequested request)
+        , onUrlChange = \url -> RouterMsg (Router.onUrlChanged url)
         }
 
 
@@ -49,8 +49,7 @@ type Model
 
 
 type alias LoadingModel =
-    { key : Nav.Key
-    , url : Url.Url
+    { router : Router.Router
     , store : LoadingValue String Store
     , seed : LoadingValue Never Random.Seed
     , today : LoadingValue Never Date
@@ -64,9 +63,7 @@ type LoadingValue error value
 
 
 type alias LoadedModel =
-    { key : Nav.Key
-    , url : Url.Url
-    , route : Route
+    { router : Router.Router
     , createExerciseForm : CreateExerciseForm.Form
     , editExerciseForm : Maybe EditExerciseForm.Form
     , store : Store
@@ -78,7 +75,16 @@ type alias LoadedModel =
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Loading { key = key, url = url, seed = LoadingValue, store = LoadingValue, today = LoadingValue }
+    ( Loading
+        { seed = LoadingValue
+        , store = LoadingValue
+        , today = LoadingValue
+        , router =
+            { url = url
+            , key = key
+            , route = Router.NotFound
+            }
+        }
     , Cmd.batch
         [ requestStorage
         , requestTimeForSeed
@@ -107,8 +113,7 @@ requestToday =
 
 
 type Msg
-    = UrlRequested Browser.UrlRequest
-    | UrlChanged Url.Url
+    = RouterMsg Router.RouteMsg
     | ReceiveStore Json.Encode.Value
     | CreateSeed Time.Posix
     | ReceiveToday Date
@@ -120,17 +125,23 @@ type Msg
 
 goToMainPageCmd : LoadedModel -> Cmd Msg
 goToMainPageCmd model =
-    Nav.pushUrl model.key (Router.toLink Router.ListNextDays)
+    Nav.pushUrl model.router.key (Router.toLink Router.ListNextDays)
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
 updateLoading msg model =
     case msg of
-        UrlRequested urlRequest ->
-            updateUrlRequested urlRequest (Loading model) model.key
-
-        UrlChanged url ->
-            ( Loading { model | url = url }, Cmd.none )
+        RouterMsg routeMsg ->
+            let
+                routerTuple =
+                    Router.update routeMsg model.router (\route -> Cmd.none)
+            in
+            ( Loading
+                { model
+                    | router = Tuple.first routerTuple
+                }
+            , Tuple.second routerTuple
+            )
 
         ReceiveStore jsonValue ->
             let
@@ -151,7 +162,7 @@ updateLoading msg model =
                     case maybeLoaded of
                         Just loaded ->
                             ( Loaded loaded
-                            , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                            , Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                             )
 
                         Nothing ->
@@ -180,7 +191,7 @@ updateLoading msg model =
             case maybeLoaded of
                 Just loaded ->
                     ( Loaded loaded
-                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    , Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -197,7 +208,7 @@ updateLoading msg model =
             case maybeLoaded of
                 Just loaded ->
                     ( Loaded loaded
-                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    , Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -216,73 +227,73 @@ updateLoading msg model =
             Debug.log "ExercisePressEvent should not be called in the loading model" ( Loading model, Cmd.none )
 
 
+routeCmd : Router.Route -> Cmd msg
+routeCmd route =
+    Cmd.none
+
+
+
+-- case route of
+--     DeleteExercise id ->
+--         let
+--             existingExercises =
+--                 Storage.getExercises model.store
+--             filteredExercises =
+--                 List.filter (\exercise -> exercise.id /= id) existingExercises
+--             newStore =
+--                 Storage.setExercises filteredExercises model.store
+--         in
+--         ( Loaded
+--             { model
+--                 | url = url
+--                 , route = route
+--                 , store = newStore
+--             }
+--         , Cmd.batch
+--             [ Storage.save newStore
+--             , goToMainPageCmd model
+--             ]
+--         )
+--     CreateExercise ->
+--         ( Loaded
+--             { model
+--                 | createExerciseForm = CreateExerciseForm.init
+--                 , url = url
+--                 , route = route
+--             }
+--         , Cmd.none
+--         )
+--     EditExercise id ->
+--         let
+--             maybeExercise =
+--                 List.filter (\e -> e.id == id) (Storage.getExercises model.store)
+--                     |> List.head
+--         in
+--         case maybeExercise of
+--             Just exercise ->
+--                 ( Loaded
+--                     { model
+--                         | editExerciseForm = Just (EditExerciseForm.init exercise)
+--                         , url = url
+--                         , route = route
+--                     }
+--                 , Cmd.none
+--                 )
+--             Nothing ->
+--                 ( Loaded { model | url = url, route = route }, Cmd.none )
+--     _ ->
+--         ( Loaded { model | url = url, route = route }, Cmd.none )
+
+
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
 updateLoaded msg model =
     case msg of
-        UrlRequested urlRequest ->
-            updateUrlRequested urlRequest (Loaded model) model.key
-
-        UrlChanged url ->
+        RouterMsg routerMsg ->
             let
-                route =
-                    parseRoute url
+                ( newRouter, cmd ) =
+                    Router.update routerMsg model.router routeCmd
             in
-            case route of
-                DeleteExercise id ->
-                    let
-                        existingExercises =
-                            Storage.getExercises model.store
-
-                        filteredExercises =
-                            List.filter (\exercise -> exercise.id /= id) existingExercises
-
-                        newStore =
-                            Storage.setExercises filteredExercises model.store
-                    in
-                    ( Loaded
-                        { model
-                            | url = url
-                            , route = route
-                            , store = newStore
-                        }
-                    , Cmd.batch
-                        [ Storage.save newStore
-                        , goToMainPageCmd model
-                        ]
-                    )
-
-                CreateExercise ->
-                    ( Loaded
-                        { model
-                            | createExerciseForm = CreateExerciseForm.init
-                            , url = url
-                            , route = route
-                        }
-                    , Cmd.none
-                    )
-
-                EditExercise id ->
-                    let
-                        maybeExercise =
-                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
-                                |> List.head
-                    in
-                    case maybeExercise of
-                        Just exercise ->
-                            ( Loaded
-                                { model
-                                    | editExerciseForm = Just (EditExerciseForm.init exercise)
-                                    , url = url
-                                    , route = route
-                                }
-                            , Cmd.none
-                            )
-
-                        Nothing ->
-                            ( Loaded { model | url = url, route = route }, Cmd.none )
-
-                _ ->
-                    ( Loaded { model | url = url, route = route }, Cmd.none )
+            ( Loaded { model | router = newRouter }, cmd )
 
         ReceiveStore jsonValue ->
             let
@@ -311,7 +322,7 @@ updateLoaded msg model =
             )
 
         CreateExerciseMsg createFormMsg ->
-            case model.route of
+            case model.router.route of
                 CreateExercise ->
                     case createFormMsg of
                         CreateExerciseForm.FormMsg formMsg ->
@@ -346,7 +357,7 @@ updateLoaded msg model =
                     ( Loaded model, Cmd.none )
 
         EditExerciseMsg editFormMsg ->
-            case model.route of
+            case model.router.route of
                 EditExercise id ->
                     let
                         maybeExercise =
@@ -451,16 +462,6 @@ updateLoaded msg model =
             ( Loaded { model | longPress = Tuple.first tuple }, Tuple.second tuple )
 
 
-updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
-updateUrlRequested urlRequest model key =
-    case urlRequest of
-        Browser.Internal url ->
-            ( model, Nav.pushUrl key (Url.toString url) )
-
-        Browser.External href ->
-            ( model, Nav.load href )
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
@@ -476,9 +477,11 @@ loadingToLoaded loading =
     case ( loading.seed, loading.store, loading.today ) of
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
-                { key = loading.key
-                , url = loading.url
-                , route = parseRoute loading.url
+                { router =
+                    { key = loading.router.key
+                    , url = loading.router.url
+                    , route = parseRoute loading.router.url
+                    }
                 , createExerciseForm = CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , store = store
@@ -531,7 +534,7 @@ viewLoading model =
 
 viewLoaded : LoadedModel -> Html Msg
 viewLoaded model =
-    case model.route of
+    case model.router.route of
         NotFound ->
             viewNotFound
 

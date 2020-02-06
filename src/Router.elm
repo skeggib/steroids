@@ -1,9 +1,26 @@
-module Router exposing (Route(..), parseRoute, toLink)
+module Router exposing (Route(..), RouteMsg, Router, onUrlChanged, onUrlRequested, parseRoute, toLink, update)
 
+import Browser
+import Browser.Navigation as Nav
 import Date exposing (Date)
 import ExerciseVersion2 as Exercise
 import Url exposing (Url)
 import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
+
+
+type RouteMsg
+    = UrlRequested Browser.UrlRequest
+    | UrlChanged Url.Url
+
+
+onUrlRequested : Browser.UrlRequest -> RouteMsg
+onUrlRequested =
+    UrlRequested
+
+
+onUrlChanged : Url.Url -> RouteMsg
+onUrlChanged =
+    UrlChanged
 
 
 type Route
@@ -14,6 +31,35 @@ type Route
     | DeleteExercise Exercise.Id
     | ShowDay Date
     | NotFound
+
+
+type alias Router =
+    { url : Url.Url
+    , key : Nav.Key
+    , route : Route
+    }
+
+
+update : RouteMsg -> Router -> (Route -> Cmd msg) -> ( Router, Cmd msg )
+update msg router action =
+    case msg of
+        UrlRequested urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( router, Nav.pushUrl router.key (Url.toString url) )
+
+                Browser.External href ->
+                    ( router, Nav.load href )
+
+        UrlChanged url ->
+            let
+                route =
+                    parseRoute url
+
+                newRouter =
+                    { router | url = url, route = route }
+            in
+            ( newRouter, action route )
 
 
 toLink : Route -> String

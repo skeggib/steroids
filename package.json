@@ -1,0 +1,25 @@
+{
+  "name": "steroids",
+  "version": "1.0.0",
+  "description": "Bodybuilding tracker progressive web app.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skeggib/steroids.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/skeggib/steroids/issues"
+  },
+  "homepage": "https://github.com/skeggib/steroids#readme",
+  "devDependencies": {
+    "cypress": "^4.0.1"
+  }
+}

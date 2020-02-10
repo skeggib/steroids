@@ -227,6 +227,10 @@ updateLoading msg model =
             Debug.log "ExercisePressEvent should not be called in the loading model" ( Loading model, Cmd.none )
 
 
+
+-- TODO: refactor the exercise creation -> call a route that creates the exercise
+
+
 routeCmd : Router.Route -> Cmd msg
 routeCmd route =
     Cmd.none
@@ -253,15 +257,6 @@ routeCmd route =
 --             [ Storage.save newStore
 --             , goToMainPageCmd model
 --             ]
---         )
---     CreateExercise ->
---         ( Loaded
---             { model
---                 | createExerciseForm = CreateExerciseForm.init
---                 , url = url
---                 , route = route
---             }
---         , Cmd.none
 --         )
 --     EditExercise id ->
 --         let
@@ -290,10 +285,24 @@ updateLoaded msg model =
     case msg of
         RouterMsg routerMsg ->
             let
+                oldRoute =
+                    model.router.route
+
                 ( newRouter, cmd ) =
                     Router.update routerMsg model.router routeCmd
             in
-            ( Loaded { model | router = newRouter }, cmd )
+            case oldRoute of
+                Router.CreateExercise ->
+                    ( Loaded
+                        { model
+                            | router = newRouter
+                            , createExerciseForm = CreateExerciseForm.init
+                        }
+                    , cmd
+                    )
+
+                _ ->
+                    ( Loaded { model | router = newRouter }, cmd )
 
         ReceiveStore jsonValue ->
             let

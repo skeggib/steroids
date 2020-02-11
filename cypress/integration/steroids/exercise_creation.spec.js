@@ -15,9 +15,33 @@ describe('Exercise creation', function () {
         '-' +
         zeroPad(today.getDate() + 1, 2)
 
+    function navigate_from_main_to_create_exercise() {
+        cy.contains('Create an exercise').click()
+    }
+
+    function fill_input_fields(exercise_name, sets_number, repetitions_number, date) {
+        cy.contains('Name').next('input').type(exercise_name)
+        cy.contains('Sets number').next('input').type(sets_number)
+        cy.contains('Repetitions number').next('input').type(repetitions_number)
+        cy.contains('Date').next('input').type(date)
+    }
+
+    function get_input_fields_list() {
+        return [
+            cy.contains('Name').next('input'),
+            cy.contains('Sets number').next('input'),
+            cy.contains('Repetitions number').next('input'),
+            cy.contains('Date').next('input')
+        ]
+    }
+
+    function click_create_button() {
+        cy.contains('button', 'Create').click()
+    }
+
     this.beforeEach(function () {
         cy.visit('http://localhost:8000/')
-        cy.contains('Create an exercise').click()
+        navigate_from_main_to_create_exercise()
     })
 
     it('Has the correct path', function () {
@@ -44,13 +68,10 @@ describe('Exercise creation', function () {
 
     it('Creates an exercise', function () {
         // Given some valids values entered in the input fields
-        cy.contains('Name').next('input').type('Exercise name')
-        cy.contains('Sets number').next('input').type('10')
-        cy.contains('Repetitions number').next('input').type('20')
-        cy.contains('Date').next('input').type(iso_today)
+        fill_input_fields('Exercise name', 10, 20, iso_today)
 
         // When the user clicks on the creation button
-        cy.contains('button', 'Create').click()
+        click_create_button()
 
         // Then the list of next exercises is displayed and it contains one day, this day also contains one exercise
         cy.location().should((location) => {
@@ -63,37 +84,25 @@ describe('Exercise creation', function () {
 
     it('Clears the input fiels after creating an exercise', function () {
         // Given a created exercise
-        cy.contains('Name').next('input').type('Exercise name')
-        cy.contains('Sets number').next('input').type('10')
-        cy.contains('Repetitions number').next('input').type('20')
-        cy.contains('Date').next('input').type(iso_today)
-        cy.contains('button', 'Create').click()
+        fill_input_fields('Exercise name', 10, 20, iso_today)
+        click_create_button()
 
         // When the user wants to create another exercise
         cy.contains('Create an exercise').click()
 
         // Then the exercise creation page has empty input fields
-        cy.contains('Name').next('input').should('have.value', '')
-        cy.contains('Sets number').next('input').should('have.value', '')
-        cy.contains('Repetitions number').next('input').should('have.value', '')
-        cy.contains('Date').next('input').should('have.value', '')
+        get_input_fields_list().forEach(input => input.should('have.value', ''))
     })
 
     it('Creates multiple exercises on the same day', function () {
         // Given a created exercise
-        cy.contains('Name').next('input').type('Exercise name')
-        cy.contains('Sets number').next('input').type('10')
-        cy.contains('Repetitions number').next('input').type('20')
-        cy.contains('Date').next('input').type(iso_today)
-        cy.contains('button', 'Create').click()
+        fill_input_fields('Exercise name', 10, 20, iso_today)
+        click_create_button()
 
         // When the user created another exercise
-        cy.contains('Create an exercise').click()
-        cy.contains('Name').next('input').type('Another exercise name')
-        cy.contains('Sets number').next('input').type('30')
-        cy.contains('Repetitions number').next('input').type('40')
-        cy.contains('Date').next('input').type(iso_today)
-        cy.contains('button', 'Create').click()
+        navigate_from_main_to_create_exercise()
+        fill_input_fields('Another exercise name', 30, 40, iso_today)
+        click_create_button()
 
         // Then the list of next exercises is displayed and it contains one day, this day also contains two exercises
         cy.get('.dayLink')
@@ -103,23 +112,20 @@ describe('Exercise creation', function () {
 
     it('Creates multiple exercises on different days', function () {
         // Given a created exercise
-        cy.contains('Name').next('input').type('Exercise name')
-        cy.contains('Sets number').next('input').type('10')
-        cy.contains('Repetitions number').next('input').type('20')
-        cy.contains('Date').next('input').type(iso_today)
-        cy.contains('button', 'Create').click()
+        fill_input_fields('Exercise name', 10, 20, iso_today)
+        click_create_button()
 
         // When the user created another exercise using a different date
-        cy.contains('Create an exercise').click()
-        cy.contains('Name').next('input').type('Another exercise name')
-        cy.contains('Sets number').next('input').type('30')
-        cy.contains('Repetitions number').next('input').type('40')
-        cy.contains('Date').next('input').type(iso_tomorrow)
-        cy.contains('button', 'Create').click()
+        navigate_from_main_to_create_exercise()
+        fill_input_fields('Another exercise name', 30, 40, iso_tomorrow)
+        click_create_button()
 
         // Then the list of next exercises is displayed and it contains two days, each containing one exercise
         cy.get('.dayLink')
             .should('have.length', 2)
             .contains('1 exercise')
     })
+
+    // TODO: it does not clear the input fields when the creation was cancelled
+    // TODO: it creates an exercise using the values entered in the fields
 })

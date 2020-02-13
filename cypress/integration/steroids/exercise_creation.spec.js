@@ -1,6 +1,6 @@
 import { iso_today, iso_tomorrow } from '../../support/helpers.js'
 
-describe('Exercise creation', function () {
+describe('The exercise creation page', function () {
 
     /**
      * Get the list of input fields (<input> tags) of the exercise creation page.
@@ -19,29 +19,29 @@ describe('Exercise creation', function () {
         cy.navigate_to_create_exercise_page()
     })
 
-    it('Has the correct path', function () {
+    it('has the correct path', function () {
         cy.location().should((location) => {
             expect(location.pathname).to.eq('/exercises/create')
         })
     })
 
-    it('Contains a name field', function () {
+    it('contains a name field', function () {
         cy.contains('Name').next('input')
     })
 
-    it('Contains a sets number field', function () {
+    it('contains a sets number field', function () {
         cy.contains('Sets number').next('input')
     })
 
-    it('Contains a repetitions number field', function () {
+    it('contains a repetitions number field', function () {
         cy.contains('Repetitions number').next('input')
     })
 
-    it('Contains a date field', function () {
+    it('contains a date field', function () {
         cy.contains('Date').next('input')
     })
 
-    it('Creates an exercise', function () {
+    it('allows to creates an exercise', function () {
         // Given some valids values entered in the input fields
         cy.fill_input_fields('Exercise name', 10, 20, iso_today)
 
@@ -57,7 +57,7 @@ describe('Exercise creation', function () {
             .contains('1 exercise')
     })
 
-    it('Clears the input fiels after creating an exercise', function () {
+    it('clears the input fiels after creating an exercise', function () {
         // Given a created exercise
         cy.fill_input_fields('Exercise name', 10, 20, iso_today)
         cy.click_create_button()
@@ -67,38 +67,6 @@ describe('Exercise creation', function () {
 
         // Then the exercise creation page has empty input fields
         get_input_fields_list().forEach(input => input.should('have.value', ''))
-    })
-
-    it('Creates multiple exercises on the same day', function () {
-        // Given a created exercise
-        cy.fill_input_fields('Exercise name', 10, 20, iso_today)
-        cy.click_create_button()
-
-        // When the user created another exercise
-        cy.navigate_to_create_exercise_page()
-        cy.fill_input_fields('Another exercise name', 30, 40, iso_today)
-        cy.click_create_button()
-
-        // Then the list of next exercises is displayed and it contains one day, this day also contains two exercises
-        cy.get('.dayLink')
-            .should('have.length', 1)
-            .contains('2 exercises')
-    })
-
-    it('Creates multiple exercises on different days', function () {
-        // Given a created exercise
-        cy.fill_input_fields('Exercise name', 10, 20, iso_today)
-        cy.click_create_button()
-
-        // When the user created another exercise using a different date
-        cy.navigate_to_create_exercise_page()
-        cy.fill_input_fields('Another exercise name', 30, 40, iso_tomorrow)
-        cy.click_create_button()
-
-        // Then the list of next exercises is displayed and it contains two days, each containing one exercise
-        cy.get('.dayLink')
-            .should('have.length', 2)
-            .contains('1 exercise')
     })
 
     // TODO: it does not clear the input fields when the creation was cancelled

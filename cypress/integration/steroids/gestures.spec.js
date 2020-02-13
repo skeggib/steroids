@@ -1,6 +1,6 @@
 import { iso_today } from '../../support/helpers.js'
 
-describe('A long press', function () {
+describe('A long press on an exercise', function () {
     it('displays the action bar', function () {
         cy.visit('http://localhost:8000/')
         cy.create_exercise('Exercise name', 10, 20, iso_today)

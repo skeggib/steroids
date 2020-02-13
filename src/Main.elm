@@ -238,26 +238,6 @@ routeCmd route =
 
 
 -- case route of
---     DeleteExercise id ->
---         let
---             existingExercises =
---                 Storage.getExercises model.store
---             filteredExercises =
---                 List.filter (\exercise -> exercise.id /= id) existingExercises
---             newStore =
---                 Storage.setExercises filteredExercises model.store
---         in
---         ( Loaded
---             { model
---                 | url = url
---                 , route = route
---                 , store = newStore
---             }
---         , Cmd.batch
---             [ Storage.save newStore
---             , goToMainPageCmd model
---             ]
---         )
 --     EditExercise id ->
 --         let
 --             maybeExercise =
@@ -285,13 +265,10 @@ updateLoaded msg model =
     case msg of
         RouterMsg routerMsg ->
             let
-                oldRoute =
-                    model.router.route
-
                 ( newRouter, cmd ) =
                     Router.update routerMsg model.router routeCmd
             in
-            case oldRoute of
+            case newRouter.route of
                 Router.CreateExercise ->
                     ( Loaded
                         { model
@@ -299,6 +276,28 @@ updateLoaded msg model =
                             , createExerciseForm = CreateExerciseForm.init
                         }
                     , cmd
+                    )
+
+                Router.DeleteExercise id ->
+                    let
+                        existingExercises =
+                            Storage.getExercises model.store
+
+                        filteredExercises =
+                            List.filter (\exercise -> exercise.id /= id) existingExercises
+
+                        newStore =
+                            Storage.setExercises filteredExercises model.store
+                    in
+                    ( Loaded
+                        { model
+                            | router = newRouter
+                            , store = newStore
+                        }
+                    , Cmd.batch
+                        [ Storage.save newStore
+                        , goToMainPageCmd model
+                        ]
                     )
 
                 _ ->
@@ -789,7 +788,7 @@ viewExercise exercise pressing pressed =
                 checkBox
             , col
                 (List.append
-                    [ Html.Attributes.class "col-8 pl-0" ]
+                    [ Html.Attributes.class "col-8 pl-0 exercise" ]
                     (Gestures.longPress
                         exercise
                         (\e -> ExerciseLongPress e)

@@ -1,19 +1,6 @@
-describe('Exercise creation', function () {
+import { iso_today, iso_tomorrow } from '../../support/helpers.js'
 
-    const today = new Date()
-    const zeroPad = (num, places) => String(num).padStart(places, '0')
-    const iso_today =
-        zeroPad(today.getFullYear(), 4) +
-        '-' +
-        zeroPad(today.getMonth() + 1, 2) +
-        '-' +
-        zeroPad(today.getDate(), 2)
-    const iso_tomorrow =
-        zeroPad(today.getFullYear(), 4) +
-        '-' +
-        zeroPad(today.getMonth() + 1, 2) +
-        '-' +
-        zeroPad(today.getDate() + 1, 2)
+describe('Exercise creation', function () {
 
     /**
      * Get the list of input fields (<input> tags) of the exercise creation page.

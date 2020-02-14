@@ -50,7 +50,7 @@ describe('The exercise creation page', function () {
 
         // Then the list of next exercises is displayed and it contains one day, this day also contains one exercise
         cy.location().should((location) => {
-            expect(location.pathname).to.eq('/')
+            expect(location.pathname).to.eq('/') // TODO: move to another test
         })
         cy.get('.dayLink')
             .should('have.length', 1)

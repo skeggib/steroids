@@ -23,4 +23,8 @@ describe('The action bar', function () {
     it('contains a delete button', function () {
         cy.get('.action-bar').contains('delete')
     })
+
+    it('contains a edit button', function () {
+        cy.get('.action-bar').contains('edit')
+    })
 })

@@ -236,30 +236,6 @@ routeCmd route =
     Cmd.none
 
 
-
--- case route of
---     EditExercise id ->
---         let
---             maybeExercise =
---                 List.filter (\e -> e.id == id) (Storage.getExercises model.store)
---                     |> List.head
---         in
---         case maybeExercise of
---             Just exercise ->
---                 ( Loaded
---                     { model
---                         | editExerciseForm = Just (EditExerciseForm.init exercise)
---                         , url = url
---                         , route = route
---                     }
---                 , Cmd.none
---                 )
---             Nothing ->
---                 ( Loaded { model | url = url, route = route }, Cmd.none )
---     _ ->
---         ( Loaded { model | url = url, route = route }, Cmd.none )
-
-
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
 updateLoaded msg model =
     case msg of
@@ -299,6 +275,25 @@ updateLoaded msg model =
                         , goToMainPageCmd model
                         ]
                     )
+
+                EditExercise id ->
+                    let
+                        maybeExercise =
+                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
+                                |> List.head
+                    in
+                    case maybeExercise of
+                        Just exercise ->
+                            ( Loaded
+                                { model
+                                    | editExerciseForm = Just (EditExerciseForm.init exercise)
+                                    , router = newRouter
+                                }
+                            , Cmd.none
+                            )
+
+                        Nothing ->
+                            ( Loaded { model | router = newRouter }, Cmd.none )
 
                 _ ->
                     ( Loaded { model | router = newRouter }, cmd )

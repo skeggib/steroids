@@ -1,6 +1,6 @@
 FROM skeggib/elm_dev
 
-RUN npm install -g local-web-server
+RUN npm install -g local-web-server@3.0.7
 
 WORKDIR /project
 COPY app app

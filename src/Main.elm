@@ -1,6 +1,6 @@
 module Main exposing (main)
 
-import Bootstrap exposing (col, row)
+import Bootstrap exposing (ButtonStyle(..), buttonHyperlink, col, row)
 import Browser
 import Browser.Navigation as Nav
 import CreateExerciseForm
@@ -19,12 +19,12 @@ import Html.Events.Extra.Mouse as Mouse
 import Json.Decode
 import Json.Encode
 import Random
-import Route exposing (Route(..), parseRoute)
+import Router exposing (Route(..), parseRoute)
 import StorageVersion2 as Storage exposing (Store)
 import Task
 import Time
 import Url
-import Words exposing (plural, words)
+import Words exposing (plural, strings, words)
 
 
 main : Program () Model Msg
@@ -34,8 +34,8 @@ main =
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , onUrlRequest = UrlRequested
-        , onUrlChange = UrlChanged
+        , onUrlRequest = \request -> RouterMsg (Router.onUrlRequested request)
+        , onUrlChange = \url -> RouterMsg (Router.onUrlChanged url)
         }
 
 
@@ -49,8 +49,8 @@ type Model
 
 
 type alias LoadingModel =
-    { key : Nav.Key
-    , url : Url.Url
+    { url : Url.Url
+    , key : Nav.Key
     , store : LoadingValue String Store
     , seed : LoadingValue Never Random.Seed
     , today : LoadingValue Never Date
@@ -64,9 +64,7 @@ type LoadingValue error value
 
 
 type alias LoadedModel =
-    { key : Nav.Key
-    , url : Url.Url
-    , route : Route
+    { router : Router.Router
     , createExerciseForm : CreateExerciseForm.Form
     , editExerciseForm : Maybe EditExerciseForm.Form
     , store : Store
@@ -78,7 +76,13 @@ type alias LoadedModel =
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
-    ( Loading { key = key, url = url, seed = LoadingValue, store = LoadingValue, today = LoadingValue }
+    ( Loading
+        { seed = LoadingValue
+        , store = LoadingValue
+        , today = LoadingValue
+        , url = url
+        , key = key
+        }
     , Cmd.batch
         [ requestStorage
         , requestTimeForSeed
@@ -107,8 +111,7 @@ requestToday =
 
 
 type Msg
-    = UrlRequested Browser.UrlRequest
-    | UrlChanged Url.Url
+    = RouterMsg Router.RouteMsg
     | ReceiveStore Json.Encode.Value
     | CreateSeed Time.Posix
     | ReceiveToday Date
@@ -120,17 +123,14 @@ type Msg
 
 goToMainPageCmd : LoadedModel -> Cmd Msg
 goToMainPageCmd model =
-    Nav.pushUrl model.key (Route.toLink Route.ListNextDays)
+    Router.changeRoute model.router Router.ListNextDays
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
 updateLoading msg model =
     case msg of
-        UrlRequested urlRequest ->
-            updateUrlRequested urlRequest (Loading model) model.key
-
-        UrlChanged url ->
-            ( Loading { model | url = url }, Cmd.none )
+        RouterMsg _ ->
+            Debug.log "RouterMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
         ReceiveStore jsonValue ->
             let
@@ -151,7 +151,8 @@ updateLoading msg model =
                     case maybeLoaded of
                         Just loaded ->
                             ( Loaded loaded
-                            , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                            , Cmd.none
+                              --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                             )
 
                         Nothing ->
@@ -180,7 +181,8 @@ updateLoading msg model =
             case maybeLoaded of
                 Just loaded ->
                     ( Loaded loaded
-                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    , Cmd.none
+                      --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -197,7 +199,8 @@ updateLoading msg model =
             case maybeLoaded of
                 Just loaded ->
                     ( Loaded loaded
-                    , Nav.pushUrl updatedModel.key (Url.toString updatedModel.url)
+                    , Cmd.none
+                      --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -219,16 +222,22 @@ updateLoading msg model =
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
 updateLoaded msg model =
     case msg of
-        UrlRequested urlRequest ->
-            updateUrlRequested urlRequest (Loaded model) model.key
-
-        UrlChanged url ->
+        RouterMsg routerMsg ->
             let
-                route =
-                    parseRoute url
+                ( newRouter, cmd ) =
+                    Router.update routerMsg model.router
             in
-            case route of
-                DeleteExercise id ->
+            case Router.getRoute newRouter of
+                Router.CreateExercise ->
+                    ( Loaded
+                        { model
+                            | router = newRouter
+                            , createExerciseForm = CreateExerciseForm.init
+                        }
+                    , cmd
+                    )
+
+                Router.DeleteExercise id ->
                     let
                         existingExercises =
                             Storage.getExercises model.store
@@ -241,24 +250,14 @@ updateLoaded msg model =
                     in
                     ( Loaded
                         { model
-                            | url = url
-                            , route = route
+                            | router = newRouter
                             , store = newStore
                         }
                     , Cmd.batch
                         [ Storage.save newStore
                         , goToMainPageCmd model
+                        , cmd
                         ]
-                    )
-
-                CreateExercise ->
-                    ( Loaded
-                        { model
-                            | createExerciseForm = CreateExerciseForm.init
-                            , url = url
-                            , route = route
-                        }
-                    , Cmd.none
                     )
 
                 EditExercise id ->
@@ -272,17 +271,16 @@ updateLoaded msg model =
                             ( Loaded
                                 { model
                                     | editExerciseForm = Just (EditExerciseForm.init exercise)
-                                    , url = url
-                                    , route = route
+                                    , router = newRouter
                                 }
                             , Cmd.none
                             )
 
                         Nothing ->
-                            ( Loaded { model | url = url, route = route }, Cmd.none )
+                            ( Loaded { model | router = newRouter }, cmd )
 
                 _ ->
-                    ( Loaded { model | url = url, route = route }, Cmd.none )
+                    ( Loaded { model | router = newRouter }, cmd )
 
         ReceiveStore jsonValue ->
             let
@@ -311,7 +309,7 @@ updateLoaded msg model =
             )
 
         CreateExerciseMsg createFormMsg ->
-            case model.route of
+            case Router.getRoute model.router of
                 CreateExercise ->
                     case createFormMsg of
                         CreateExerciseForm.FormMsg formMsg ->
@@ -346,7 +344,7 @@ updateLoaded msg model =
                     ( Loaded model, Cmd.none )
 
         EditExerciseMsg editFormMsg ->
-            case model.route of
+            case Router.getRoute model.router of
                 EditExercise id ->
                     let
                         maybeExercise =
@@ -451,16 +449,6 @@ updateLoaded msg model =
             ( Loaded { model | longPress = Tuple.first tuple }, Tuple.second tuple )
 
 
-updateUrlRequested : Browser.UrlRequest -> Model -> Nav.Key -> ( Model, Cmd msg )
-updateUrlRequested urlRequest model key =
-    case urlRequest of
-        Browser.Internal url ->
-            ( model, Nav.pushUrl key (Url.toString url) )
-
-        Browser.External href ->
-            ( model, Nav.load href )
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
@@ -476,9 +464,7 @@ loadingToLoaded loading =
     case ( loading.seed, loading.store, loading.today ) of
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
-                { key = loading.key
-                , url = loading.url
-                , route = parseRoute loading.url
+                { router = Router.initRouter loading.url loading.key
                 , createExerciseForm = CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , store = store
@@ -504,7 +490,7 @@ subscriptions _ =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Steroids"
+    { title = strings.applicationName
     , body =
         [ case model of
             Loading loadingModel ->
@@ -520,18 +506,18 @@ viewLoading : LoadingModel -> Html Msg
 viewLoading model =
     case ( model.seed, model.store ) of
         ( LoadingError _, _ ) ->
-            Html.text "Cannot load seed"
+            Html.text strings.errorSeedLoading
 
         ( _, LoadingError error ) ->
-            Html.text ("Cannot load store: " ++ error)
+            Html.text (strings.errorStoreLoading ++ error)
 
         ( _, _ ) ->
-            Html.text "Loading..."
+            Html.text strings.loading
 
 
 viewLoaded : LoadedModel -> Html Msg
 viewLoaded model =
-    case model.route of
+    case Router.getRoute model.router of
         NotFound ->
             viewNotFound
 
@@ -553,7 +539,7 @@ viewLoaded model =
                     viewNotFound
 
         DeleteExercise id ->
-            Html.text ("Deleting " ++ Exercise.idToString id ++ "...")
+            Html.text (strings.deletingExercise (Exercise.idToString id))
 
         ShowDay date ->
             viewDay date (Storage.getExercises model.store) model.longPress.pressing model.longPress.pressed
@@ -561,7 +547,7 @@ viewLoaded model =
 
 viewNotFound : Html Msg
 viewNotFound =
-    Html.text "Not found"
+    Html.text strings.pageNotFound
 
 
 groupExercisesByDay : List Exercise -> Dict Int (List Exercise)
@@ -584,19 +570,19 @@ viewNextDays today exercises =
                 |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
 
         buttons =
-            [ Html.a
-                [ Html.Attributes.href (Route.toLink Route.CreateExercise)
-                , Html.Attributes.class "btn btn-primary float-right ml-2"
-                ]
-                [ Html.text "Create an exercise" ]
-            , Html.a
-                [ Html.Attributes.href (Route.toLink Route.ListPastDays)
-                , Html.Attributes.class "btn btn-light float-right"
-                ]
-                [ Html.text "View past exercises" ]
+            [ buttonHyperlink
+                Primary
+                [ Html.Attributes.class "float-right ml-2" ]
+                (Router.toLink Router.CreateExercise)
+                strings.actionCreateExercise
+            , buttonHyperlink
+                Light
+                [ Html.Attributes.class "float-right" ]
+                (Router.toLink Router.ListPastDays)
+                strings.actionViewPastExercises
             ]
     in
-    viewDaysList days "Exercises" buttons
+    viewDaysList days strings.titleNextDaysPage buttons
 
 
 viewPastDays : Date -> List Exercise -> Html Msg
@@ -615,14 +601,14 @@ viewPastDays today exercises =
                 |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
 
         buttons =
-            [ Html.a
-                [ Html.Attributes.href (Route.toLink Route.ListNextDays)
-                , Html.Attributes.class "btn btn-light float-right"
-                ]
-                [ Html.text "Go back to exercises list" ]
+            [ buttonHyperlink
+                Light
+                [ Html.Attributes.class "float-right" ]
+                (Router.toLink Router.ListNextDays)
+                strings.actionGoBackToNextDays
             ]
     in
-    viewDaysList days "Past exercises" buttons
+    viewDaysList days strings.titlePastDaysPage buttons
 
 
 viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html Msg
@@ -640,7 +626,7 @@ viewDaysList days header buttons =
                     ]
                 ]
                 (if List.isEmpty days then
-                    [ Html.div [ Html.Attributes.class "d-flex justify-content-center mt-3" ] [ Html.text "No exercises!" ] ]
+                    [ Html.div [ Html.Attributes.class "d-flex justify-content-center mt-3" ] [ Html.text strings.noExercises ] ]
 
                  else
                     List.map viewDayLink days
@@ -691,7 +677,7 @@ viewDayLink ( date, exercises ) =
     in
     row [ Html.Attributes.class "my-3" ]
         [ Html.a
-            [ Html.Attributes.href (Route.ShowDay date |> Route.toLink), Html.Attributes.class "dayLink" ]
+            [ Html.Attributes.href (Router.ShowDay date |> Router.toLink), Html.Attributes.class "dayLink" ]
             [ Html.span []
                 [ Html.h3
                     [ Html.Attributes.class "d-inline mr-3" ]
@@ -699,16 +685,7 @@ viewDayLink ( date, exercises ) =
                 , Html.br [] []
                 , Html.span
                     [ Html.Attributes.class "text-muted" ]
-                    [ Html.text
-                        (String.fromInt exercisesLength
-                            ++ " "
-                            ++ plural words.exercise exercisesLength
-                            ++ " ("
-                            ++ String.fromInt doneNumber
-                            ++ "/"
-                            ++ String.fromInt exercisesLength
-                            ++ " done)"
-                        )
+                    [ Html.text (strings.numberOfExercisesInDay doneNumber exercisesLength)
                     ]
                 ]
                 |> col []
@@ -786,7 +763,7 @@ viewExercise exercise pressing pressed =
                 checkBox
             , col
                 (List.append
-                    [ Html.Attributes.class "col-8 pl-0" ]
+                    [ Html.Attributes.class "col-8 pl-0 exercise" ]
                     (Gestures.longPress
                         exercise
                         (\e -> ExerciseLongPress e)
@@ -820,11 +797,11 @@ viewDay date exercises pressingExercise pressedExercise =
         actionBarContent =
             Maybe.map
                 (\justPressedExercise ->
-                    [ Html.a [ Html.Attributes.href (Route.toLink (Route.DeleteExercise justPressedExercise.id)) ]
+                    [ Html.a [ Html.Attributes.href (Router.toLink (Router.DeleteExercise justPressedExercise.id)) ]
                         [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
                             [ Html.text "delete" ]
                         ]
-                    , Html.a [ Html.Attributes.href (Route.toLink (Route.EditExercise justPressedExercise.id)) ]
+                    , Html.a [ Html.Attributes.href (Router.toLink (Router.EditExercise justPressedExercise.id)) ]
                         [ Html.i [ Html.Attributes.class "material-icons float-right px-2" ]
                             [ Html.text "edit" ]
                         ]
@@ -838,7 +815,7 @@ viewDay date exercises pressingExercise pressedExercise =
         (Html.div
             []
             (if List.length filteredExercises == 0 then
-                [ Html.text "No exercises!" ]
+                [ Html.text strings.noExercises ]
 
              else
                 List.map

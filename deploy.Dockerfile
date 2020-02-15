@@ -5,10 +5,8 @@ RUN npm install -g local-web-server
 WORKDIR /project
 COPY app app
 COPY src src
-COPY tests tests
 COPY elm.json .
 
-RUN elm-test
 RUN elm make src/Main.elm --output=app/main.js
 WORKDIR /project/app
 EXPOSE 80

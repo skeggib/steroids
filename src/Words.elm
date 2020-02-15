@@ -1,9 +1,26 @@
-module Words exposing (plural, words)
+module Words exposing (plural, strings, words)
 
 
 type alias Word =
     { singular : String
     , plural : String
+    }
+
+
+strings =
+    { actionCreateExercise = "Create an exercise"
+    , actionGoBackToNextDays = "Go back to exercises list"
+    , actionViewPastExercises = "View past exercises"
+    , applicationName = "Steroids"
+    , deletingExercise = deletingExercise
+    , errorSeedLoading = "Cannot load seed"
+    , errorStoreLoading = "Cannot load store: "
+    , loading = "Loading..."
+    , noExercises = "No exercises!"
+    , numberOfExercisesInDay = numberOfExercisesInDay
+    , pageNotFound = "Page not found"
+    , titleNextDaysPage = "Exercises"
+    , titlePastDaysPage = "Past exercises"
     }
 
 
@@ -22,3 +39,20 @@ plural word number =
 
         _ ->
             word.plural
+
+
+deletingExercise : String -> String
+deletingExercise id =
+    "Deleting exercise " ++ id ++ "..."
+
+
+numberOfExercisesInDay : Int -> Int -> String
+numberOfExercisesInDay numberDone total =
+    String.fromInt total
+        ++ " "
+        ++ plural words.exercise total
+        ++ " ("
+        ++ String.fromInt numberDone
+        ++ "/"
+        ++ String.fromInt total
+        ++ ")"

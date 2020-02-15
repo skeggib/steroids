@@ -120,7 +120,7 @@ view form =
             getFieldAsString "date" form
     in
     Html.div [ Html.Attributes.class "container" ]
-        [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text "Create an exercise" ] |> col [] ]
+        [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text "Edit an exercise" ] |> col [] ]
         , row [] [ inputGroup "Name" nameField |> col [] ]
         , row []
             [ inputGroup "Sets number" setsNumberField |> col []

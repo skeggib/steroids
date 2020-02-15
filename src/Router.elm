@@ -1,4 +1,4 @@
-module Router exposing (Route(..), RouteMsg, Router, onUrlChanged, onUrlRequested, parseRoute, toLink, update)
+module Router exposing (Route(..), RouteMsg, Router, changeRoute, getRoute, initRouter, onUrlChanged, onUrlRequested, parseRoute, toLink, update)
 
 import Browser
 import Browser.Navigation as Nav
@@ -33,11 +33,54 @@ type Route
     | NotFound
 
 
-type alias Router =
-    { url : Url.Url
-    , key : Nav.Key
-    , route : Route
-    }
+type Router
+    = Router
+        { url : Url.Url
+        , key : Nav.Key
+        , route : Route
+        }
+
+
+initRouter : Url.Url -> Nav.Key -> Router
+initRouter url key =
+    Router
+        { url = url
+        , key = key
+        , route = parseRoute url
+        }
+
+
+changeRoute : Router -> Route -> Cmd msg
+changeRoute router route =
+    Nav.pushUrl (getKey router) (toLink route)
+
+
+getKey : Router -> Nav.Key
+getKey router =
+    case router of
+        Router routerValues ->
+            routerValues.key
+
+
+setUrl : Url.Url -> Router -> Router
+setUrl url router =
+    case router of
+        Router routerValues ->
+            Router { routerValues | url = url }
+
+
+setRoute : Route -> Router -> Router
+setRoute route router =
+    case router of
+        Router routerValues ->
+            Router { routerValues | route = route }
+
+
+getRoute : Router -> Route
+getRoute router =
+    case router of
+        Router routerValues ->
+            routerValues.route
 
 
 update : RouteMsg -> Router -> (Route -> Cmd msg) -> ( Router, Cmd msg )
@@ -46,7 +89,7 @@ update msg router action =
         UrlRequested urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( router, Nav.pushUrl router.key (Url.toString url) )
+                    ( router, Nav.pushUrl (getKey router) (Url.toString url) )
 
                 Browser.External href ->
                     ( router, Nav.load href )
@@ -57,7 +100,9 @@ update msg router action =
                     parseRoute url
 
                 newRouter =
-                    { router | url = url, route = route }
+                    router
+                        |> setUrl url
+                        |> setRoute route
             in
             ( newRouter, action route )
 

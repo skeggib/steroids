@@ -49,7 +49,8 @@ type Model
 
 
 type alias LoadingModel =
-    { router : Router.Router
+    { url : Url.Url
+    , key : Nav.Key
     , store : LoadingValue String Store
     , seed : LoadingValue Never Random.Seed
     , today : LoadingValue Never Date
@@ -79,11 +80,8 @@ init _ url key =
         { seed = LoadingValue
         , store = LoadingValue
         , today = LoadingValue
-        , router =
-            { url = url
-            , key = key
-            , route = Router.NotFound
-            }
+        , url = url
+        , key = key
         }
     , Cmd.batch
         [ requestStorage
@@ -125,23 +123,14 @@ type Msg
 
 goToMainPageCmd : LoadedModel -> Cmd Msg
 goToMainPageCmd model =
-    Nav.pushUrl model.router.key (Router.toLink Router.ListNextDays)
+    Router.changeRoute model.router Router.ListNextDays
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
 updateLoading msg model =
     case msg of
-        RouterMsg routeMsg ->
-            let
-                routerTuple =
-                    Router.update routeMsg model.router (\route -> Cmd.none)
-            in
-            ( Loading
-                { model
-                    | router = Tuple.first routerTuple
-                }
-            , Tuple.second routerTuple
-            )
+        RouterMsg _ ->
+            Debug.log "RouterMsg should not be called in the loading model" ( Loading model, Cmd.none )
 
         ReceiveStore jsonValue ->
             let
@@ -162,7 +151,8 @@ updateLoading msg model =
                     case maybeLoaded of
                         Just loaded ->
                             ( Loaded loaded
-                            , Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
+                            , Cmd.none
+                              --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                             )
 
                         Nothing ->
@@ -191,7 +181,8 @@ updateLoading msg model =
             case maybeLoaded of
                 Just loaded ->
                     ( Loaded loaded
-                    , Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
+                    , Cmd.none
+                      --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -208,7 +199,8 @@ updateLoading msg model =
             case maybeLoaded of
                 Just loaded ->
                     ( Loaded loaded
-                    , Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
+                    , Cmd.none
+                      --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -231,8 +223,8 @@ updateLoading msg model =
 -- TODO: refactor the exercise creation -> call a route that creates the exercise
 
 
-routeCmd : Router.Route -> Cmd msg
-routeCmd route =
+routeChangeAction : Router.Route -> Cmd msg
+routeChangeAction route =
     Cmd.none
 
 
@@ -242,9 +234,9 @@ updateLoaded msg model =
         RouterMsg routerMsg ->
             let
                 ( newRouter, cmd ) =
-                    Router.update routerMsg model.router routeCmd
+                    Router.update routerMsg model.router routeChangeAction
             in
-            case newRouter.route of
+            case Router.getRoute newRouter of
                 Router.CreateExercise ->
                     ( Loaded
                         { model
@@ -325,7 +317,7 @@ updateLoaded msg model =
             )
 
         CreateExerciseMsg createFormMsg ->
-            case model.router.route of
+            case Router.getRoute model.router of
                 CreateExercise ->
                     case createFormMsg of
                         CreateExerciseForm.FormMsg formMsg ->
@@ -360,7 +352,7 @@ updateLoaded msg model =
                     ( Loaded model, Cmd.none )
 
         EditExerciseMsg editFormMsg ->
-            case model.router.route of
+            case Router.getRoute model.router of
                 EditExercise id ->
                     let
                         maybeExercise =
@@ -480,11 +472,7 @@ loadingToLoaded loading =
     case ( loading.seed, loading.store, loading.today ) of
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
-                { router =
-                    { key = loading.router.key
-                    , url = loading.router.url
-                    , route = parseRoute loading.router.url
-                    }
+                { router = Router.initRouter loading.url loading.key
                 , createExerciseForm = CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , store = store
@@ -537,7 +525,7 @@ viewLoading model =
 
 viewLoaded : LoadedModel -> Html Msg
 viewLoaded model =
-    case model.router.route of
+    case Router.getRoute model.router of
         NotFound ->
             viewNotFound
 

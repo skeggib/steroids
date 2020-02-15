@@ -83,8 +83,8 @@ getRoute router =
             routerValues.route
 
 
-update : RouteMsg -> Router -> (Route -> Cmd msg) -> ( Router, Cmd msg )
-update msg router action =
+update : RouteMsg -> Router -> ( Router, Cmd msg )
+update msg router =
     case msg of
         UrlRequested urlRequest ->
             case urlRequest of
@@ -96,15 +96,15 @@ update msg router action =
 
         UrlChanged url ->
             let
-                route =
+                newRoute =
                     parseRoute url
 
                 newRouter =
                     router
                         |> setUrl url
-                        |> setRoute route
+                        |> setRoute newRoute
             in
-            ( newRouter, action route )
+            ( newRouter, Cmd.none )
 
 
 toLink : Route -> String

@@ -219,22 +219,13 @@ updateLoading msg model =
             Debug.log "ExercisePressEvent should not be called in the loading model" ( Loading model, Cmd.none )
 
 
-
--- TODO: refactor the exercise creation -> call a route that creates the exercise
-
-
-routeChangeAction : Router.Route -> Cmd msg
-routeChangeAction route =
-    Cmd.none
-
-
 updateLoaded : Msg -> LoadedModel -> ( Model, Cmd Msg )
 updateLoaded msg model =
     case msg of
         RouterMsg routerMsg ->
             let
                 ( newRouter, cmd ) =
-                    Router.update routerMsg model.router routeChangeAction
+                    Router.update routerMsg model.router
             in
             case Router.getRoute newRouter of
                 Router.CreateExercise ->
@@ -265,6 +256,7 @@ updateLoaded msg model =
                     , Cmd.batch
                         [ Storage.save newStore
                         , goToMainPageCmd model
+                        , cmd
                         ]
                     )
 
@@ -285,7 +277,7 @@ updateLoaded msg model =
                             )
 
                         Nothing ->
-                            ( Loaded { model | router = newRouter }, Cmd.none )
+                            ( Loaded { model | router = newRouter }, cmd )
 
                 _ ->
                     ( Loaded { model | router = newRouter }, cmd )

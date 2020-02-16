@@ -20,7 +20,6 @@ describe('The edit exercise page', function () {
         cy.contains('button', 'Update').click()
 
         // Then the name of the exercise is changed
-        cy.get('.dayLink').click()
         cy.get('.exercise').contains('Edited name')
     })
 
@@ -34,7 +33,6 @@ describe('The edit exercise page', function () {
         cy.contains('button', 'Update').click()
 
         // Then the sets number of the exercise is changed
-        cy.get('.dayLink').click()
         cy.get('.exercise').contains('11 sets')
     })
 
@@ -48,39 +46,7 @@ describe('The edit exercise page', function () {
         cy.contains('button', 'Update').click()
 
         // Then the repetitions number of the exercise is changed
-        cy.get('.dayLink').click()
         cy.get('.exercise').contains('21 repetitions')
-    })
-
-    it('returns to the main page when cancelling the edit', function () {
-        // Given a created exercise
-
-        // The exercise is created in beforeEach
-
-        // When the user cancels the edit
-        cy.contains('button', 'Cancel').click()
-
-        // Then the main page is displayed
-        cy.location().should((location) => {
-            expect(location.pathname).to.eq('/')
-        })
-    })
-
-    it('returns to the main page when validating the edit', function () {
-        // Given a created exercise
-
-        // The exercise is created in beforeEach
-
-        // When the user validates the edit
-        cy.contains('Name').next('input').clear().type('Edited name')
-        cy.contains('Sets number').next('input').clear().type('11')
-        cy.contains('Repetitions number').next('input').clear().type('21')
-        cy.contains('button', 'Cancel').click()
-
-        // Then the main page is displayed
-        cy.location().should((location) => {
-            expect(location.pathname).to.eq('/')
-        })
     })
 
     // TODO: allows the change the date of an exercise

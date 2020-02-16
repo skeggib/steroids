@@ -242,21 +242,54 @@ updateLoaded msg model =
                         existingExercises =
                             Storage.getExercises model.store
 
-                        filteredExercises =
+                        deletedExercises =
+                            List.filter (\exercise -> exercise.id == id) existingExercises
+
+                        keepedExercises =
                             List.filter (\exercise -> exercise.id /= id) existingExercises
 
+                        maybeDeletedExerciseDate =
+                            case deletedExercises of
+                                deletedExercise :: _ ->
+                                    let
+                                        exercisesInDate =
+                                            List.filter (\exercise -> exercise.date == deletedExercise.date) keepedExercises
+                                    in
+                                    case List.length exercisesInDate of
+                                        0 ->
+                                            Nothing
+
+                                        _ ->
+                                            Just deletedExercise.date
+
+                                _ ->
+                                    Nothing
+
                         newStore =
-                            Storage.setExercises filteredExercises model.store
+                            Storage.setExercises keepedExercises model.store
+
+                        ( updatedLongPress, longPressCmd ) =
+                            Gestures.updateLongPress
+                                Gestures.Reset
+                                model.longPress
+                                (\e -> ExerciseLongPress e)
                     in
                     ( Loaded
                         { model
                             | router = newRouter
                             , store = newStore
+                            , longPress = updatedLongPress
                         }
                     , Cmd.batch
                         [ Storage.save newStore
-                        , goToMainPageCmd model
+                        , case maybeDeletedExerciseDate of
+                            Just date ->
+                                Router.changeRoute model.router (Router.ShowDay date)
+
+                            Nothing ->
+                                goToMainPageCmd model
                         , cmd
+                        , longPressCmd
                         ]
                     )
 
@@ -385,7 +418,7 @@ updateLoaded msg model =
                                                 { model | store = newStore }
                                             , Cmd.batch
                                                 [ Storage.save newStore
-                                                , goToMainPageCmd model
+                                                , Router.changeRoute model.router (Router.ShowDay updatedExercise.date)
                                                 ]
                                             )
 
@@ -393,13 +426,13 @@ updateLoaded msg model =
                                             ( Loaded { model | editExerciseForm = Just newForm }, Cmd.none )
 
                                 EditExerciseForm.Cancel ->
-                                    ( Loaded model, goToMainPageCmd model )
+                                    ( Loaded model, Router.changeRoute model.router (Router.ShowDay exercise.date) )
 
                         Nothing ->
-                            ( Loaded model, goToMainPageCmd model )
+                            Debug.log "There is no exercises with this ID" ( Loaded model, goToMainPageCmd model )
 
                 _ ->
-                    ( Loaded model, Cmd.none )
+                    Debug.log "This should not happen" ( Loaded model, Cmd.none )
 
         ToggleValidated exerciseId ->
             let

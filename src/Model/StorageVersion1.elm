@@ -1,9 +1,9 @@
-module StorageVersion1 exposing (Store(..), decoder, encode, getExercises, init, setExercises)
+module Model.StorageVersion1 exposing (Store(..), decoder, encode, getExercises, init, setExercises)
 
-import ExerciseVersion1 as Exercise
 import Json.Decode exposing (Decoder, list, succeed)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
+import Model.ExerciseVersion1 as Exercise
 
 
 type Store

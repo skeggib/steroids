@@ -1,10 +1,10 @@
-port module StorageVersion2 exposing (Store, decoder, encode, getExercises, init, receive, request, save, setExercises)
+port module Model.StorageVersion2 exposing (Store, decoder, encode, getExercises, init, receive, request, save, setExercises)
 
-import ExerciseVersion2 as Exercise
 import Json.Decode exposing (Decoder, andThen, fail, field, int, list, oneOf, succeed)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
-import StorageVersion1
+import Model.ExerciseVersion2 as Exercise
+import Model.StorageVersion1
 
 
 type Store
@@ -105,15 +105,15 @@ v2Decoder =
 
 v1Tov2Decoder : Decoder Store
 v1Tov2Decoder =
-    Json.Decode.map v1Tov2Converter StorageVersion1.decoder
+    Json.Decode.map v1Tov2Converter Model.StorageVersion1.decoder
 
 
-v1Tov2Converter : StorageVersion1.Store -> Store
+v1Tov2Converter : Model.StorageVersion1.Store -> Store
 v1Tov2Converter v1store =
     let
         v1Exercises =
             case v1store of
-                StorageVersion1.Store v1model ->
+                Model.StorageVersion1.Store v1model ->
                     v1model.exercises
     in
     Store

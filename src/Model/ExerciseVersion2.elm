@@ -1,10 +1,10 @@
-module ExerciseVersion2 exposing (Exercise, Id, createId, decoder, encode, idFromString, idToString, v1Tov2Converter)
+module Model.ExerciseVersion2 exposing (Exercise, Id, createId, decoder, encode, idFromString, idToString, v1Tov2Converter)
 
 import Date exposing (Date)
-import ExerciseVersion1
 import Json.Decode exposing (Decoder, bool, int, string, succeed)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
+import Model.ExerciseVersion1
 import Random
 
 
@@ -41,7 +41,7 @@ encode exercise =
         ]
 
 
-v1Tov2Converter : ExerciseVersion1.Exercise -> Exercise
+v1Tov2Converter : Model.ExerciseVersion1.Exercise -> Exercise
 v1Tov2Converter v1Exercise =
     { id = v1Exercise.id
     , name = v1Exercise.name
@@ -53,29 +53,29 @@ v1Tov2Converter v1Exercise =
 
 
 type alias Id =
-    ExerciseVersion1.Id
+    Model.ExerciseVersion1.Id
 
 
 createId : Random.Seed -> ( Id, Random.Seed )
 createId =
-    ExerciseVersion1.createId
+    Model.ExerciseVersion1.createId
 
 
 idDecoder : Decoder Id
 idDecoder =
-    ExerciseVersion1.idDecoder
+    Model.ExerciseVersion1.idDecoder
 
 
 dateDecoder : Decoder Date
 dateDecoder =
-    ExerciseVersion1.dateDecoder
+    Model.ExerciseVersion1.dateDecoder
 
 
 idToString : Id -> String
 idToString =
-    ExerciseVersion1.idToString
+    Model.ExerciseVersion1.idToString
 
 
 idFromString : String -> Maybe Id
 idFromString =
-    ExerciseVersion1.idFromString
+    Model.ExerciseVersion1.idFromString

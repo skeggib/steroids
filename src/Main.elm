@@ -3,12 +3,9 @@ module Main exposing (main)
 import Bootstrap exposing (ButtonStyle(..), buttonHyperlink, col, row)
 import Browser
 import Browser.Navigation as Nav
-import CreateExerciseForm
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Dict.Extra
-import EditExerciseForm
-import ExerciseVersion2 as Exercise exposing (Exercise)
 import Form
 import Gestures
 import Helpers
@@ -18,9 +15,12 @@ import Html.Events
 import Html.Events.Extra.Mouse as Mouse
 import Json.Decode
 import Json.Encode
+import Model.ExerciseVersion2 as Exercise exposing (Exercise)
+import Model.StorageVersion2 as Storage exposing (Store)
+import Pages.CreateExerciseForm
+import Pages.EditExerciseForm
 import Random
 import Router exposing (Route(..), parseRoute)
-import StorageVersion2 as Storage exposing (Store)
 import Task
 import Time
 import Url
@@ -65,8 +65,8 @@ type LoadingValue error value
 
 type alias LoadedModel =
     { router : Router.Router
-    , createExerciseForm : CreateExerciseForm.Form
-    , editExerciseForm : Maybe EditExerciseForm.Form
+    , createExerciseForm : Pages.CreateExerciseForm.Form
+    , editExerciseForm : Maybe Pages.EditExerciseForm.Form
     , store : Store
     , seed : Random.Seed
     , today : Date
@@ -115,8 +115,8 @@ type Msg
     | ReceiveStore Json.Encode.Value
     | CreateSeed Time.Posix
     | ReceiveToday Date
-    | CreateExerciseMsg CreateExerciseForm.Msg
-    | EditExerciseMsg EditExerciseForm.Msg
+    | CreateExerciseMsg Pages.CreateExerciseForm.Msg
+    | EditExerciseMsg Pages.EditExerciseForm.Msg
     | ToggleValidated Exercise.Id
     | ExerciseLongPress (Gestures.LongPressEvent Exercise)
 
@@ -232,7 +232,7 @@ updateLoaded msg model =
                     ( Loaded
                         { model
                             | router = newRouter
-                            , createExerciseForm = CreateExerciseForm.init
+                            , createExerciseForm = Pages.CreateExerciseForm.init
                         }
                     , cmd
                     )
@@ -303,7 +303,7 @@ updateLoaded msg model =
                         Just exercise ->
                             ( Loaded
                                 { model
-                                    | editExerciseForm = Just (EditExerciseForm.init exercise)
+                                    | editExerciseForm = Just (Pages.EditExerciseForm.init exercise)
                                     , router = newRouter
                                 }
                             , Cmd.none
@@ -345,12 +345,12 @@ updateLoaded msg model =
             case Router.getRoute model.router of
                 CreateExercise ->
                     case createFormMsg of
-                        CreateExerciseForm.FormMsg formMsg ->
+                        Pages.CreateExerciseForm.FormMsg formMsg ->
                             let
                                 newForm =
-                                    CreateExerciseForm.update formMsg model.createExerciseForm
+                                    Pages.CreateExerciseForm.update formMsg model.createExerciseForm
                             in
-                            case ( formMsg, CreateExerciseForm.getOutput newForm model.seed ) of
+                            case ( formMsg, Pages.CreateExerciseForm.getOutput newForm model.seed ) of
                                 ( Form.Submit, Just tuple ) ->
                                     let
                                         newStore =
@@ -370,7 +370,7 @@ updateLoaded msg model =
                                 _ ->
                                     ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
 
-                        CreateExerciseForm.Cancel ->
+                        Pages.CreateExerciseForm.Cancel ->
                             ( Loaded model, goToMainPageCmd model )
 
                 _ ->
@@ -387,17 +387,17 @@ updateLoaded msg model =
                     case maybeExercise of
                         Just exercise ->
                             case editFormMsg of
-                                EditExerciseForm.FormMsg formMsg ->
+                                Pages.EditExerciseForm.FormMsg formMsg ->
                                     let
                                         newForm =
                                             case model.editExerciseForm of
                                                 Just form ->
-                                                    EditExerciseForm.update formMsg form
+                                                    Pages.EditExerciseForm.update formMsg form
 
                                                 Nothing ->
-                                                    EditExerciseForm.init exercise
+                                                    Pages.EditExerciseForm.init exercise
                                     in
-                                    case ( formMsg, EditExerciseForm.getOutput newForm exercise ) of
+                                    case ( formMsg, Pages.EditExerciseForm.getOutput newForm exercise ) of
                                         ( Form.Submit, Just updatedExercise ) ->
                                             let
                                                 newStore =
@@ -425,7 +425,7 @@ updateLoaded msg model =
                                         _ ->
                                             ( Loaded { model | editExerciseForm = Just newForm }, Cmd.none )
 
-                                EditExerciseForm.Cancel ->
+                                Pages.EditExerciseForm.Cancel ->
                                     ( Loaded model, Router.changeRoute model.router (Router.ShowDay exercise.date) )
 
                         Nothing ->
@@ -498,7 +498,7 @@ loadingToLoaded loading =
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
                 { router = Router.initRouter loading.url loading.key
-                , createExerciseForm = CreateExerciseForm.init
+                , createExerciseForm = Pages.CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , store = store
                 , seed = seed
@@ -811,14 +811,14 @@ viewExercise exercise pressing pressed =
         ]
 
 
-viewCreateExercise : CreateExerciseForm.Form -> Html Msg
+viewCreateExercise : Pages.CreateExerciseForm.Form -> Html Msg
 viewCreateExercise form =
-    Html.map CreateExerciseMsg (CreateExerciseForm.view form)
+    Html.map CreateExerciseMsg (Pages.CreateExerciseForm.view form)
 
 
-viewEditExercise : EditExerciseForm.Form -> Html Msg
+viewEditExercise : Pages.EditExerciseForm.Form -> Html Msg
 viewEditExercise form =
-    Html.map EditExerciseMsg (EditExerciseForm.view form)
+    Html.map EditExerciseMsg (Pages.EditExerciseForm.view form)
 
 
 viewDay : Date -> List Exercise -> Maybe Exercise -> Maybe Exercise -> Html Msg

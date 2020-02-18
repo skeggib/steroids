@@ -11,6 +11,20 @@ describe('A long press on an exercise', function () {
     })
 })
 
+describe('Clicking on an empty space when an exercise is selected', function () {
+    this.beforeEach(function () {
+        cy.visit('http://localhost:8000/')
+        cy.create_exercise('Exercise name', 10, 20, iso_today)
+        cy.get('.dayLink').click()
+        cy.get('.exercise').long_press()
+    })
+
+    it('hides the action bar', function () {
+        cy.get('body').click()
+        cy.get('.action-bar').should('not.be.visible')
+    })
+})
+
 describe('The action bar', function () {
 
     this.beforeEach(function () {

@@ -1,4 +1,13 @@
-module Pages.CreateExerciseForm exposing (Form, Msg(..), getOutput, init, isSubmit, update, validate, view)
+module Pages.CreateExerciseForm exposing
+    ( Form
+    , Msg(..)
+    , getOutput
+    , init
+    , isSubmit
+    , update
+    , validate
+    , view
+    )
 
 import Bootstrap exposing (col, row)
 import Date

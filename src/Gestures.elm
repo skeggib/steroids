@@ -62,7 +62,7 @@ initLongPress =
 updateLongPress :
     LongPressEvent object
     -> LongPressModel object
-    -> (LongPressEvent object -> msg)
+    -> (LongPressEvent object -> msg) -- TODO: replace with Cmd.map
     -> ( LongPressModel object, Cmd msg )
 updateLongPress event model converter =
     case event of

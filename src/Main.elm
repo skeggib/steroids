@@ -319,7 +319,7 @@ updateLoaded msg model =
                 ShowDay date ->
                     ( Loaded
                         { model
-                            | showDayPage = Just (Pages.ShowDayPage.init date model.store)
+                            | showDayPage = Just (Pages.ShowDayPage.init date)
                             , router = newRouter
                         }
                     , cmd
@@ -452,7 +452,7 @@ updateLoaded msg model =
                 Just showDayPage ->
                     let
                         ( newPage, cmd ) =
-                            Pages.ShowDayPage.update showDayMsg showDayPage
+                            Pages.ShowDayPage.update showDayMsg model.store showDayPage
                     in
                     ( Loaded { model | showDayPage = Just newPage }
                     , Cmd.map (\x -> ShowDayMsg x) cmd
@@ -478,8 +478,8 @@ loadingToLoaded loading =
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
                 { router = Router.initRouter loading.url loading.key
-                , nextDaysPage = Just (Pages.NextDaysPage.init today store)
-                , pastDaysPage = Just (Pages.PastDaysPage.init today store)
+                , nextDaysPage = Just (Pages.NextDaysPage.init today)
+                , pastDaysPage = Just (Pages.PastDaysPage.init today)
                 , createExerciseForm = Pages.CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , showDayPage = Nothing
@@ -539,7 +539,7 @@ viewLoaded model =
         ListNextDays ->
             case model.nextDaysPage of
                 Just nextDaysPage ->
-                    Pages.NextDaysPage.view nextDaysPage
+                    Pages.NextDaysPage.view model.store nextDaysPage
 
                 Nothing ->
                     viewNotFound
@@ -547,7 +547,7 @@ viewLoaded model =
         ListPastDays ->
             case model.pastDaysPage of
                 Just pastDaysPage ->
-                    Pages.PastDaysPage.view pastDaysPage
+                    Pages.PastDaysPage.view model.store pastDaysPage
 
                 Nothing ->
                     viewNotFound
@@ -569,7 +569,7 @@ viewLoaded model =
         ShowDay date ->
             case model.showDayPage of
                 Just showDayPage ->
-                    Html.map (\x -> ShowDayMsg x) (Pages.ShowDayPage.view showDayPage)
+                    Html.map (\x -> ShowDayMsg x) (Pages.ShowDayPage.view model.store showDayPage)
 
                 Nothing ->
                     viewNotFound

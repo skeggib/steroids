@@ -17,7 +17,6 @@ import Words exposing (plural, strings, words)
 type alias Page =
     { longPress : Gestures.LongPressModel Exercise
     , date : Date
-    , store : Storage.Store
     }
 
 
@@ -30,21 +29,20 @@ type Msg
 -- (Storage.getExercises model.store)
 
 
-init : Date -> Storage.Store -> Page
-init date store =
+init : Date -> Page
+init date =
     { longPress = Gestures.initLongPress
     , date = date
-    , store = store
     }
 
 
-update : Msg -> Page -> ( Page, Cmd Msg )
-update msg page =
+update : Msg -> Storage.Store -> Page -> ( Page, Cmd Msg )
+update msg store page =
     case msg of
         ToggleValidated exerciseId ->
             let
                 exercises =
-                    Storage.getExercises page.store
+                    Storage.getExercises store
 
                 filteredExercises =
                     List.filter (\e -> e.id == exerciseId) exercises
@@ -74,9 +72,9 @@ update msg page =
                             exercises
 
                 updatedStore =
-                    Storage.setExercises updatedExercisesList page.store
+                    Storage.setExercises updatedExercisesList store
             in
-            ( { page | store = updatedStore }, Storage.save updatedStore )
+            ( page, Storage.save updatedStore )
 
         ExerciseLongPress event ->
             let
@@ -89,11 +87,11 @@ update msg page =
             ( { page | longPress = newLongPress }, cmd )
 
 
-view : Page -> Html Msg
-view page =
+view : Storage.Store -> Page -> Html Msg
+view store page =
     viewDay
         page.date
-        (Storage.getExercises page.store |> List.filter (\e -> e.date == page.date))
+        (Storage.getExercises store |> List.filter (\e -> e.date == page.date))
         page.longPress.pressing
         page.longPress.pressed
 

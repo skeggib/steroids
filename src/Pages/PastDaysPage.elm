@@ -13,25 +13,23 @@ import Words exposing (strings)
 
 type alias Page =
     { today : Date
-    , store : Storage.Store
     }
 
 
-init : Date -> Storage.Store -> Page
-init today store =
+init : Date -> Page
+init today =
     { today = today
-    , store = store
     }
 
 
-view : Page -> Html msg
-view page =
+view : Storage.Store -> Page -> Html msg
+view store page =
     let
         todayRataDie =
             Date.toRataDie page.today
 
         days =
-            Storage.getExercises page.store
+            Storage.getExercises store
                 |> List.filter (\exercise -> Date.toRataDie exercise.date < todayRataDie)
                 |> Pages.groupExercisesByDay
                 |> Dict.toList

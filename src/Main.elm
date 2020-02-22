@@ -21,6 +21,7 @@ import Pages
 import Pages.CreateExerciseForm
 import Pages.EditExerciseForm
 import Pages.NextDaysPage
+import Pages.PastDaysPage
 import Pages.ShowDayPage
 import Random
 import Router exposing (Route(..), parseRoute)
@@ -69,6 +70,7 @@ type LoadingValue error value
 type alias LoadedModel =
     { router : Router.Router
     , nextDaysPage : Maybe Pages.NextDaysPage.Page
+    , pastDaysPage : Maybe Pages.PastDaysPage.Page
     , createExerciseForm : Pages.CreateExerciseForm.Form
     , editExerciseForm : Maybe Pages.EditExerciseForm.Form
     , showDayPage : Maybe Pages.ShowDayPage.Page
@@ -477,6 +479,7 @@ loadingToLoaded loading =
             Just
                 { router = Router.initRouter loading.url loading.key
                 , nextDaysPage = Just (Pages.NextDaysPage.init today store)
+                , pastDaysPage = Just (Pages.PastDaysPage.init today store)
                 , createExerciseForm = Pages.CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , showDayPage = Nothing
@@ -542,7 +545,12 @@ viewLoaded model =
                     viewNotFound
 
         ListPastDays ->
-            viewPastDays model.today (Storage.getExercises model.store)
+            case model.pastDaysPage of
+                Just pastDaysPage ->
+                    Pages.PastDaysPage.view pastDaysPage
+
+                Nothing ->
+                    viewNotFound
 
         CreateExercise ->
             viewCreateExercise model.createExerciseForm
@@ -570,32 +578,6 @@ viewLoaded model =
 viewNotFound : Html Msg
 viewNotFound =
     Html.text strings.pageNotFound
-
-
-viewPastDays : Date -> List Exercise -> Html Msg
-viewPastDays today exercises =
-    let
-        todayRataDie =
-            Date.toRataDie today
-
-        days =
-            exercises
-                |> List.filter (\exercise -> Date.toRataDie exercise.date < todayRataDie)
-                |> Pages.groupExercisesByDay
-                |> Dict.toList
-                |> List.sortBy (\( ratadie, _ ) -> ratadie)
-                |> List.reverse
-                |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
-
-        buttons =
-            [ buttonHyperlink
-                Light
-                [ Html.Attributes.class "float-right" ]
-                (Router.toLink Router.ListNextDays)
-                strings.actionGoBackToNextDays
-            ]
-    in
-    Pages.viewDaysList days strings.titlePastDaysPage buttons
 
 
 viewCreateExercise : Pages.CreateExerciseForm.Form -> Html Msg

@@ -20,6 +20,7 @@ import Model.StorageVersion2 as Storage exposing (Store)
 import Pages
 import Pages.CreateExerciseForm
 import Pages.EditExerciseForm
+import Pages.NextDaysPage
 import Pages.ShowDayPage
 import Random
 import Router exposing (Route(..), parseRoute)
@@ -67,6 +68,7 @@ type LoadingValue error value
 
 type alias LoadedModel =
     { router : Router.Router
+    , nextDaysPage : Maybe Pages.NextDaysPage.Page
     , createExerciseForm : Pages.CreateExerciseForm.Form
     , editExerciseForm : Maybe Pages.EditExerciseForm.Form
     , showDayPage : Maybe Pages.ShowDayPage.Page
@@ -474,6 +476,7 @@ loadingToLoaded loading =
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
             Just
                 { router = Router.initRouter loading.url loading.key
+                , nextDaysPage = Just (Pages.NextDaysPage.init today store)
                 , createExerciseForm = Pages.CreateExerciseForm.init
                 , editExerciseForm = Nothing
                 , showDayPage = Nothing
@@ -531,7 +534,12 @@ viewLoaded model =
             viewNotFound
 
         ListNextDays ->
-            viewNextDays model.today (Storage.getExercises model.store)
+            case model.nextDaysPage of
+                Just nextDaysPage ->
+                    Pages.NextDaysPage.view nextDaysPage
+
+                Nothing ->
+                    viewNotFound
 
         ListPastDays ->
             viewPastDays model.today (Storage.getExercises model.store)
@@ -564,41 +572,6 @@ viewNotFound =
     Html.text strings.pageNotFound
 
 
-groupExercisesByDay : List Exercise -> Dict Int (List Exercise)
-groupExercisesByDay exercises =
-    Dict.Extra.groupBy (\exercise -> Date.toRataDie exercise.date) exercises
-
-
-viewNextDays : Date -> List Exercise -> Html Msg
-viewNextDays today exercises =
-    let
-        todayRataDie =
-            Date.toRataDie today
-
-        days =
-            exercises
-                |> List.filter (\exercise -> Date.toRataDie exercise.date >= todayRataDie)
-                |> groupExercisesByDay
-                |> Dict.toList
-                |> List.sortBy (\( ratadie, _ ) -> ratadie)
-                |> List.map (\( ratadie, exercisesList ) -> ( Date.fromRataDie ratadie, exercisesList ))
-
-        buttons =
-            [ buttonHyperlink
-                Primary
-                [ Html.Attributes.class "float-right ml-2" ]
-                (Router.toLink Router.CreateExercise)
-                strings.actionCreateExercise
-            , buttonHyperlink
-                Light
-                [ Html.Attributes.class "float-right" ]
-                (Router.toLink Router.ListPastDays)
-                strings.actionViewPastExercises
-            ]
-    in
-    viewDaysList days strings.titleNextDaysPage buttons
-
-
 viewPastDays : Date -> List Exercise -> Html Msg
 viewPastDays today exercises =
     let
@@ -608,7 +581,7 @@ viewPastDays today exercises =
         days =
             exercises
                 |> List.filter (\exercise -> Date.toRataDie exercise.date < todayRataDie)
-                |> groupExercisesByDay
+                |> Pages.groupExercisesByDay
                 |> Dict.toList
                 |> List.sortBy (\( ratadie, _ ) -> ratadie)
                 |> List.reverse
@@ -622,61 +595,7 @@ viewPastDays today exercises =
                 strings.actionGoBackToNextDays
             ]
     in
-    viewDaysList days strings.titlePastDaysPage buttons
-
-
-viewDaysList : List ( Date, List Exercise ) -> String -> List (Html Msg) -> Html Msg
-viewDaysList days header buttons =
-    Pages.viewPage
-        header
-        Nothing
-        (Html.div
-            []
-            (List.append
-                [ row []
-                    [ Html.div []
-                        buttons
-                        |> col []
-                    ]
-                ]
-                (if List.isEmpty days then
-                    [ Html.div [ Html.Attributes.class "d-flex justify-content-center mt-3" ] [ Html.text strings.noExercises ] ]
-
-                 else
-                    List.map viewDayLink days
-                )
-            )
-        )
-
-
-viewDayLink : ( Date, List Exercise ) -> Html Msg
-viewDayLink ( date, exercises ) =
-    let
-        dateStr =
-            Helpers.dateToLongString date
-
-        exercisesLength =
-            List.length exercises
-
-        doneNumber =
-            List.length (List.filter (\e -> e.validated) exercises)
-    in
-    row [ Html.Attributes.class "my-3" ]
-        [ Html.a
-            [ Html.Attributes.href (Router.ShowDay date |> Router.toLink), Html.Attributes.class "dayLink" ]
-            [ Html.span []
-                [ Html.h3
-                    [ Html.Attributes.class "d-inline mr-3" ]
-                    [ Html.text dateStr ]
-                , Html.br [] []
-                , Html.span
-                    [ Html.Attributes.class "text-muted" ]
-                    [ Html.text (strings.numberOfExercisesInDay doneNumber exercisesLength)
-                    ]
-                ]
-                |> col []
-            ]
-        ]
+    Pages.viewDaysList days strings.titlePastDaysPage buttons
 
 
 viewCreateExercise : Pages.CreateExerciseForm.Form -> Html Msg

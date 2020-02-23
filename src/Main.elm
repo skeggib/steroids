@@ -1,34 +1,25 @@
 module Main exposing (main)
 
-import Bootstrap exposing (ButtonStyle(..), buttonHyperlink, col, row)
+import Bootstrap exposing (ButtonStyle(..))
 import Browser
 import Browser.Navigation as Nav
 import Date exposing (Date)
-import Dict exposing (Dict)
-import Dict.Extra
 import Form
-import Gestures
-import Helpers
 import Html exposing (Html)
-import Html.Attributes
-import Html.Events
-import Html.Events.Extra.Mouse as Mouse
 import Json.Decode
 import Json.Encode
-import Model.ExerciseVersion2 as Exercise exposing (Exercise)
 import Model.StorageVersion2 as Storage exposing (Store)
-import Pages
 import Pages.CreateExerciseForm
 import Pages.EditExerciseForm
 import Pages.NextDaysPage
 import Pages.PastDaysPage
 import Pages.ShowDayPage exposing (Msg(..))
 import Random
-import Router exposing (Route(..), parseRoute)
+import Router exposing (Route(..))
 import Task
 import Time
 import Url
-import Words exposing (plural, strings, words)
+import Words exposing (strings)
 
 
 main : Program () Model Msg
@@ -238,15 +229,6 @@ updateLoaded msg model =
                     pageFromRoute (Router.getRoute newRouter) model.today model.store
             in
             case Router.getRoute newRouter of
-                Router.CreateExercise ->
-                    ( Loaded
-                        { model
-                            | router = newRouter
-                            , page = newPage
-                        }
-                    , cmd
-                    )
-
                 Router.DeleteExercise id ->
                     let
                         existingExercises =
@@ -277,20 +259,12 @@ updateLoaded msg model =
 
                         newStore =
                             Storage.setExercises keepedExercises model.store
-
-                        -- ( updatedLongPress, longPressCmd ) =
-                        --     Gestures.updateLongPress
-                        --         Gestures.Reset
-                        --         model.longPress
-                        --         (\e -> ExerciseLongPress e) TODO
                     in
                     ( Loaded
                         { model
                             | router = newRouter
                             , store = newStore
                             , page = newPage
-
-                            -- , longPress = updatedLongPress TODO
                         }
                     , Cmd.batch
                         [ Storage.save newStore
@@ -301,37 +275,7 @@ updateLoaded msg model =
                             Nothing ->
                                 goToMainPageCmd model
                         , cmd
-
-                        -- , longPressCmd TODO
                         ]
-                    )
-
-                EditExercise id ->
-                    let
-                        maybeExercise =
-                            List.filter (\e -> e.id == id) (Storage.getExercises model.store)
-                                |> List.head
-                    in
-                    case maybeExercise of
-                        Just exercise ->
-                            ( Loaded
-                                { model
-                                    | router = newRouter
-                                    , page = newPage
-                                }
-                            , Cmd.none
-                            )
-
-                        Nothing ->
-                            ( Loaded { model | router = newRouter }, cmd )
-
-                ShowDay date ->
-                    ( Loaded
-                        { model
-                            | router = newRouter
-                            , page = newPage
-                        }
-                    , cmd
                     )
 
                 _ ->
@@ -551,7 +495,7 @@ pageFromRoute route today store =
                     NotFoundPage
 
         -- TODO
-        DeleteExercise exerciseId ->
+        DeleteExercise _ ->
             NotFoundPage
 
         ShowDay date ->

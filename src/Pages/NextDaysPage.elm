@@ -5,7 +5,6 @@ import Date exposing (Date)
 import Dict
 import Html exposing (Html)
 import Html.Attributes
-import Model.ExerciseVersion2 exposing (Exercise)
 import Model.StorageVersion2 as Storage
 import Pages
 import Router

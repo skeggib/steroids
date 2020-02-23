@@ -12,8 +12,8 @@ import Router
 import Words exposing (strings)
 
 
-viewPage : String -> Maybe (List (Html msg)) -> Html msg -> Html msg
-viewPage header actionBarContent content =
+viewPage : String -> List (Html.Attribute msg) -> Maybe (List (Html msg)) -> Html msg -> Html msg
+viewPage header pageAttributes actionBarContent content =
     let
         actionBar =
             case actionBarContent of
@@ -29,11 +29,12 @@ viewPage header actionBarContent content =
     in
     Html.div [ Html.Attributes.style "min-height" "100vh" ]
         [ Html.div
-            [ Html.Attributes.class "container"
-            , Html.Attributes.style "min-height" "100vh"
-
-            --, Mouse.onDown (\_ -> ExerciseLongPress Gestures.Reset) TODO
-            ]
+            (List.append
+                [ Html.Attributes.class "container"
+                , Html.Attributes.style "min-height" "100vh"
+                ]
+                pageAttributes
+            )
             [ row [] [ Html.h1 [ Html.Attributes.class "my-4" ] [ Html.text header ] |> col [] ]
             , content
             ]
@@ -50,6 +51,7 @@ viewDaysList : List ( Date, List Exercise ) -> String -> List (Html msg) -> Html
 viewDaysList days header buttons =
     viewPage
         header
+        []
         Nothing
         (Html.div
             []

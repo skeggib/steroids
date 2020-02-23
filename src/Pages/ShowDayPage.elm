@@ -7,6 +7,7 @@ import Helpers
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
+import Html.Events.Extra.Mouse as Mouse
 import Model.ExerciseVersion2 as Exercise exposing (Exercise)
 import Model.StorageVersion2 as Storage
 import Pages
@@ -85,6 +86,7 @@ viewDay date exercises pressingExercise pressedExercise =
     in
     Pages.viewPage
         (Helpers.dateToLongString date)
+        [ Mouse.onDown (\_ -> ExerciseLongPress Gestures.Reset) ]
         actionBarContent
         (Html.div
             []

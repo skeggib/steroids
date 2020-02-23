@@ -24,6 +24,8 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
+import { generateUUID } from './helpers.js'
+
 /**
  * Navigate to the exercise creation page using buttons.
  */
@@ -58,23 +60,7 @@ Cypress.Commands.add('create_exercise', (exercise_name, sets_number, repetitions
     cy.click_create_button()
 })
 
-function generateUUID() { // Public Domain/MIT
-    var d = new Date().getTime();//Timestamp
-    var d2 = (performance && performance.now && (performance.now() * 1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        var r = Math.random() * 16;//random number between 0 and 16
-        if (d > 0) {//Use timestamp until depleted
-            r = (d + r) % 16 | 0;
-            d = Math.floor(d / 16);
-        } else {//Use microseconds since page-load if supported
-            r = (d2 + r) % 16 | 0;
-            d2 = Math.floor(d2 / 16);
-        }
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-}
-
-Cypress.Commands.add('add_exercise_to_storage', (exercise_name, sets_number, repetitions_number, date) => {
+Cypress.Commands.add('add_exercise_to_storage', (exercise_name, sets_number, repetitions_number, date, id = null) => {
     var storage = JSON.parse(localStorage.getItem('storage'))
     if (storage === null) {
         storage = {
@@ -83,7 +69,7 @@ Cypress.Commands.add('add_exercise_to_storage', (exercise_name, sets_number, rep
         }
     }
     storage.exercises.push({
-        "id": generateUUID(),
+        "id": id || generateUUID(),
         "name": exercise_name,
         "setsNumber": sets_number,
         "repetitionsNumber": repetitions_number,

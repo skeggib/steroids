@@ -8,6 +8,7 @@ import Form
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
+import Model.ExerciseVersion2 as Exercise
 import Model.StorageVersion2 as Storage exposing (Store)
 import Pages.CreateExerciseForm
 import Pages.EditExerciseForm
@@ -122,9 +123,9 @@ type Msg
     | ShowDayMsg Pages.ShowDayPage.Msg
 
 
-goToMainPageCmd : LoadedModel -> Cmd Msg
-goToMainPageCmd model =
-    Router.changeRoute model.router Router.ListNextDays
+goToMainPageCmd : Router.Router -> Cmd Msg
+goToMainPageCmd router =
+    Router.changeRoute router Router.ListNextDays
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -153,7 +154,6 @@ updateLoading msg model =
                         Just loaded ->
                             ( Loaded loaded
                             , Cmd.none
-                              --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                             )
 
                         Nothing ->
@@ -183,7 +183,6 @@ updateLoading msg model =
                 Just loaded ->
                     ( Loaded loaded
                     , Cmd.none
-                      --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -201,7 +200,6 @@ updateLoading msg model =
                 Just loaded ->
                     ( Loaded loaded
                     , Cmd.none
-                      --Nav.pushUrl updatedModel.router.key (Url.toString updatedModel.router.url)
                     )
 
                 Nothing ->
@@ -222,11 +220,14 @@ updateLoaded msg model =
     case msg of
         RouterMsg routerMsg ->
             let
-                ( newRouter, cmd ) =
+                ( newRouter, routerCmd ) =
                     Router.update routerMsg model.router
 
                 newPage =
                     pageFromRoute (Router.getRoute newRouter) model.today model.store
+
+                cmd =
+                    routerCmd
             in
             case Router.getRoute newRouter of
                 Router.DeleteExercise id ->
@@ -273,7 +274,7 @@ updateLoaded msg model =
                                 Router.changeRoute model.router (Router.ShowDay date)
 
                             Nothing ->
-                                goToMainPageCmd model
+                                goToMainPageCmd model.router
                         , cmd
                         ]
                     )
@@ -335,7 +336,7 @@ updateLoaded msg model =
                                         }
                                     , Cmd.batch
                                         [ Storage.save newStore
-                                        , goToMainPageCmd model
+                                        , goToMainPageCmd model.router
                                         ]
                                     )
 
@@ -343,7 +344,7 @@ updateLoaded msg model =
                                     ( Loaded { model | page = CreateExercisePage newForm }, Cmd.none )
 
                         Pages.CreateExerciseForm.Cancel ->
-                            ( Loaded model, goToMainPageCmd model )
+                            ( Loaded model, goToMainPageCmd model.router )
 
                 _ ->
                     ( Loaded model, Cmd.none )
@@ -401,7 +402,7 @@ updateLoaded msg model =
                                     ( Loaded model, Router.changeRoute model.router (Router.ShowDay exercise.date) )
 
                         Nothing ->
-                            Debug.log "There is no exercises with this ID" ( Loaded model, goToMainPageCmd model )
+                            Debug.log "There is no exercises with this ID" ( Loaded model, goToMainPageCmd model.router )
 
                 _ ->
                     Debug.log "This should not happen" ( Loaded model, Cmd.none )
@@ -452,10 +453,13 @@ loadingToLoaded loading =
             let
                 router =
                     Router.initRouter loading.url loading.key
+
+                page =
+                    pageFromRoute (Router.getRoute router) today store
             in
             Just
                 { router = router
-                , page = pageFromRoute (Router.getRoute router) today store
+                , page = page
                 , store = store
                 , seed = seed
                 , today = today
@@ -494,9 +498,8 @@ pageFromRoute route today store =
                 Nothing ->
                     NotFoundPage
 
-        -- TODO
         DeleteExercise _ ->
-            NotFoundPage
+            Debug.log "This should not happen" NotFoundPage
 
         ShowDay date ->
             ShowDayPage (Pages.ShowDayPage.init date)

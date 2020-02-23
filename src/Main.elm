@@ -151,9 +151,9 @@ updateLoading msg model =
                             loadingToLoaded updatedModel
                     in
                     case maybeLoaded of
-                        Just loaded ->
+                        Just ( loaded, cmd ) ->
                             ( Loaded loaded
-                            , Cmd.none
+                            , cmd
                             )
 
                         Nothing ->
@@ -180,9 +180,9 @@ updateLoading msg model =
                     loadingToLoaded updatedModel
             in
             case maybeLoaded of
-                Just loaded ->
+                Just ( loaded, cmd ) ->
                     ( Loaded loaded
-                    , Cmd.none
+                    , cmd
                     )
 
                 Nothing ->
@@ -197,9 +197,9 @@ updateLoading msg model =
                     loadingToLoaded updatedModel
             in
             case maybeLoaded of
-                Just loaded ->
+                Just ( loaded, cmd ) ->
                     ( Loaded loaded
-                    , Cmd.none
+                    , cmd
                     )
 
                 Nothing ->
@@ -232,34 +232,8 @@ updateLoaded msg model =
             case Router.getRoute newRouter of
                 Router.DeleteExercise id ->
                     let
-                        existingExercises =
-                            Storage.getExercises model.store
-
-                        deletedExercises =
-                            List.filter (\exercise -> exercise.id == id) existingExercises
-
-                        keepedExercises =
-                            List.filter (\exercise -> exercise.id /= id) existingExercises
-
-                        maybeDeletedExerciseDate =
-                            case deletedExercises of
-                                deletedExercise :: _ ->
-                                    let
-                                        exercisesInDate =
-                                            List.filter (\exercise -> exercise.date == deletedExercise.date) keepedExercises
-                                    in
-                                    case List.length exercisesInDate of
-                                        0 ->
-                                            Nothing
-
-                                        _ ->
-                                            Just deletedExercise.date
-
-                                _ ->
-                                    Nothing
-
-                        newStore =
-                            Storage.setExercises keepedExercises model.store
+                        ( newStore, deleteExerciseCmd ) =
+                            deleteExercise id model.store newRouter
                     in
                     ( Loaded
                         { model
@@ -267,16 +241,7 @@ updateLoaded msg model =
                             , store = newStore
                             , page = newPage
                         }
-                    , Cmd.batch
-                        [ Storage.save newStore
-                        , case maybeDeletedExerciseDate of
-                            Just date ->
-                                Router.changeRoute model.router (Router.ShowDay date)
-
-                            Nothing ->
-                                goToMainPageCmd model.router
-                        , cmd
-                        ]
+                    , Cmd.batch [ cmd, deleteExerciseCmd ]
                     )
 
                 _ ->
@@ -436,6 +401,51 @@ updateLoaded msg model =
                     Debug.log "This should not happen" ( Loaded model, Cmd.none )
 
 
+deleteExercise : Exercise.Id -> Store -> Router.Router -> ( Store, Cmd Msg )
+deleteExercise id store router =
+    let
+        existingExercises =
+            Storage.getExercises store
+
+        deletedExercises =
+            List.filter (\exercise -> exercise.id == id) existingExercises
+
+        keepedExercises =
+            List.filter (\exercise -> exercise.id /= id) existingExercises
+
+        maybeDeletedExerciseDate =
+            case deletedExercises of
+                deletedExercise :: _ ->
+                    let
+                        exercisesInDate =
+                            List.filter (\exercise -> exercise.date == deletedExercise.date) keepedExercises
+                    in
+                    case List.length exercisesInDate of
+                        0 ->
+                            Nothing
+
+                        _ ->
+                            Just deletedExercise.date
+
+                _ ->
+                    Nothing
+
+        newStore =
+            Storage.setExercises keepedExercises store
+    in
+    ( newStore
+    , Cmd.batch
+        [ Storage.save newStore
+        , case maybeDeletedExerciseDate of
+            Just date ->
+                Router.changeRoute router (Router.ShowDay date)
+
+            Nothing ->
+                goToMainPageCmd router
+        ]
+    )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
@@ -446,7 +456,7 @@ update msg model =
             updateLoaded msg loaded
 
 
-loadingToLoaded : LoadingModel -> Maybe LoadedModel
+loadingToLoaded : LoadingModel -> Maybe ( LoadedModel, Cmd Msg )
 loadingToLoaded loading =
     case ( loading.seed, loading.store, loading.today ) of
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
@@ -454,16 +464,37 @@ loadingToLoaded loading =
                 router =
                     Router.initRouter loading.url loading.key
 
-                page =
-                    pageFromRoute (Router.getRoute router) today store
+                ( page, finalStore, cmd ) =
+                    let
+                        route =
+                            Router.getRoute router
+                    in
+                    case route of
+                        DeleteExercise id ->
+                            let
+                                ( store2, cmd2 ) =
+                                    deleteExercise id store router
+                            in
+                            ( pageFromRoute route today store
+                            , store2
+                            , cmd2
+                            )
+
+                        _ ->
+                            ( pageFromRoute route today store
+                            , store
+                            , Cmd.none
+                            )
             in
             Just
-                { router = router
-                , page = page
-                , store = store
-                , seed = seed
-                , today = today
-                }
+                ( { router = router
+                  , page = page
+                  , store = finalStore
+                  , seed = seed
+                  , today = today
+                  }
+                , cmd
+                )
 
         _ ->
             Nothing

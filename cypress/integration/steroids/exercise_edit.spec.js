@@ -49,6 +49,19 @@ describe('The edit exercise page', function () {
         cy.get('.exercise').contains('21 repetitions')
     })
 
+    it('keeps the changes after a page reload', function () {
+        cy.contains('Name').next('input').clear().type('Edited name')
+        cy.contains('Sets number').next('input').clear().type('11')
+        cy.contains('Repetitions number').next('input').clear().type('21')
+        cy.contains('button', 'Update').click()
+
+        cy.visit('http://localhost:8000/day/' + iso_today)
+
+        cy.get('.exercise').contains('Edited name')
+        cy.get('.exercise').contains('11 sets')
+        cy.get('.exercise').contains('21 repetitions')
+    })
+
     // TODO: allows the change the date of an exercise
     // TODO: do not change the exercise properties when cancelling the edit
     // TODO: contains the correct properties of the exercise in the fields

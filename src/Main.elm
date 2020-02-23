@@ -461,7 +461,10 @@ updateLoaded msg model =
                                     Storage.toggleValidated model.store id
                             in
                             ( Loaded { model | showDayPage = Just newPage, store = newStore }
-                            , Cmd.map (\x -> ShowDayMsg x) cmd
+                            , Cmd.batch
+                                [ Cmd.map (\x -> ShowDayMsg x) cmd
+                                , Storage.save newStore
+                                ]
                             )
 
                         _ ->
@@ -487,13 +490,43 @@ loadingToLoaded : LoadingModel -> Maybe LoadedModel
 loadingToLoaded loading =
     case ( loading.seed, loading.store, loading.today ) of
         ( LoadedValue seed, LoadedValue store, LoadedValue today ) ->
+            let
+                router =
+                    Router.initRouter loading.url loading.key
+            in
             Just
-                { router = Router.initRouter loading.url loading.key
+                { router = router
                 , nextDaysPage = Just (Pages.NextDaysPage.init today)
                 , pastDaysPage = Just (Pages.PastDaysPage.init today)
                 , createExerciseForm = Pages.CreateExerciseForm.init
-                , editExerciseForm = Nothing
-                , showDayPage = Nothing
+                , editExerciseForm =
+                    case Router.getRoute router of
+                        EditExercise id ->
+                            let
+                                maybeExercise =
+                                    case List.filter (\x -> x.id == id) (Storage.getExercises store) of
+                                        exercise :: _ ->
+                                            Just exercise
+
+                                        _ ->
+                                            Nothing
+                            in
+                            case maybeExercise of
+                                Just exercise ->
+                                    Just (Pages.EditExerciseForm.init exercise)
+
+                                Nothing ->
+                                    Nothing
+
+                        _ ->
+                            Nothing
+                , showDayPage =
+                    case Router.getRoute router of
+                        ShowDay date ->
+                            Just (Pages.ShowDayPage.init date)
+
+                        _ ->
+                            Nothing
                 , store = store
                 , seed = seed
                 , today = today

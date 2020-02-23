@@ -3,8 +3,8 @@ import { iso_today } from '../../support/helpers.js'
 describe('Loading directly', function () {
     context('the show day page', function () {
         it('shows the page', function () {
+            cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)
             cy.visit('http://localhost:8000/')
-            cy.create_exercise('Exercise name 1', 10, 20, iso_today)
             cy.visit('http://localhost:8000/day/' + iso_today)
             cy.contains('Exercise name 1')
         })

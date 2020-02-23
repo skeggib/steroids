@@ -3,8 +3,8 @@ import { iso_today, iso_tomorrow } from '../../support/helpers.js'
 describe('The edit exercise page', function () {
 
     this.beforeEach(function () {
+        cy.add_exercise_to_storage('Exercise name', 10, 20, iso_today)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name', 10, 20, iso_today)
         cy.get('.dayLink').click()
         cy.get('.exercise').long_press()
         cy.get('.action-bar').contains('edit').click({ force: true })
@@ -69,8 +69,8 @@ describe('The edit exercise page', function () {
 
 describe('Clicking on the checkbox of an exercise', function () {
     this.beforeEach(function () {
+        cy.add_exercise_to_storage('Exercise name', 10, 20, iso_today)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name', 10, 20, iso_today)
         cy.get('.dayLink').click()
     })
 

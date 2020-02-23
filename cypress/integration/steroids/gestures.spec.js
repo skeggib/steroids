@@ -2,8 +2,8 @@ import { iso_today } from '../../support/helpers.js'
 
 describe('A long press on an exercise', function () {
     it('displays the action bar', function () {
+        cy.add_exercise_to_storage('Exercise name', 10, 20, iso_today)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name', 10, 20, iso_today)
         cy.get('.dayLink').click()
         cy.get('.action-bar').should('not.be.visible')
         cy.get('.exercise').long_press()
@@ -13,8 +13,8 @@ describe('A long press on an exercise', function () {
 
 describe('Clicking on an empty space when an exercise is selected', function () {
     this.beforeEach(function () {
+        cy.add_exercise_to_storage('Exercise name', 10, 20, iso_today)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name', 10, 20, iso_today)
         cy.get('.dayLink').click()
         cy.get('.exercise').long_press()
     })
@@ -28,8 +28,8 @@ describe('Clicking on an empty space when an exercise is selected', function () 
 describe('The action bar', function () {
 
     this.beforeEach(function () {
+        cy.add_exercise_to_storage('Exercise name', 10, 20, iso_today)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name', 10, 20, iso_today)
         cy.get('.dayLink').click()
         cy.get('.exercise').long_press()
     })

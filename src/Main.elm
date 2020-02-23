@@ -69,15 +69,20 @@ type LoadingValue error value
 
 type alias LoadedModel =
     { router : Router.Router
-    , nextDaysPage : Maybe Pages.NextDaysPage.Page
-    , pastDaysPage : Maybe Pages.PastDaysPage.Page
-    , createExerciseForm : Pages.CreateExerciseForm.Form
-    , editExerciseForm : Maybe Pages.EditExerciseForm.Form
-    , showDayPage : Maybe Pages.ShowDayPage.Page
+    , page : Page
     , store : Store
     , seed : Random.Seed
     , today : Date
     }
+
+
+type Page
+    = NextDaysPage Pages.NextDaysPage.Page
+    | PastDaysPage Pages.PastDaysPage.Page
+    | CreateExercisePage Pages.CreateExerciseForm.Form
+    | EditExercisePage Pages.EditExerciseForm.Form
+    | ShowDayPage Pages.ShowDayPage.Page
+    | NotFoundPage
 
 
 init : flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
@@ -228,13 +233,16 @@ updateLoaded msg model =
             let
                 ( newRouter, cmd ) =
                     Router.update routerMsg model.router
+
+                newPage =
+                    pageFromRoute (Router.getRoute newRouter) model.today model.store
             in
             case Router.getRoute newRouter of
                 Router.CreateExercise ->
                     ( Loaded
                         { model
                             | router = newRouter
-                            , createExerciseForm = Pages.CreateExerciseForm.init
+                            , page = newPage
                         }
                     , cmd
                     )
@@ -280,6 +288,7 @@ updateLoaded msg model =
                         { model
                             | router = newRouter
                             , store = newStore
+                            , page = newPage
 
                             -- , longPress = updatedLongPress TODO
                         }
@@ -307,8 +316,8 @@ updateLoaded msg model =
                         Just exercise ->
                             ( Loaded
                                 { model
-                                    | editExerciseForm = Just (Pages.EditExerciseForm.init exercise)
-                                    , router = newRouter
+                                    | router = newRouter
+                                    , page = newPage
                                 }
                             , Cmd.none
                             )
@@ -319,14 +328,20 @@ updateLoaded msg model =
                 ShowDay date ->
                     ( Loaded
                         { model
-                            | showDayPage = Just (Pages.ShowDayPage.init date)
-                            , router = newRouter
+                            | router = newRouter
+                            , page = newPage
                         }
                     , cmd
                     )
 
                 _ ->
-                    ( Loaded { model | router = newRouter }, cmd )
+                    ( Loaded
+                        { model
+                            | router = newRouter
+                            , page = newPage
+                        }
+                    , cmd
+                    )
 
         ReceiveStore jsonValue ->
             let
@@ -355,13 +370,13 @@ updateLoaded msg model =
             )
 
         CreateExerciseMsg createFormMsg ->
-            case Router.getRoute model.router of
-                CreateExercise ->
+            case model.page of
+                CreateExercisePage page ->
                     case createFormMsg of
                         Pages.CreateExerciseForm.FormMsg formMsg ->
                             let
                                 newForm =
-                                    Pages.CreateExerciseForm.update formMsg model.createExerciseForm
+                                    Pages.CreateExerciseForm.update formMsg page
                             in
                             case ( formMsg, Pages.CreateExerciseForm.getOutput newForm model.seed ) of
                                 ( Form.Submit, Just tuple ) ->
@@ -381,7 +396,7 @@ updateLoaded msg model =
                                     )
 
                                 _ ->
-                                    ( Loaded { model | createExerciseForm = newForm }, Cmd.none )
+                                    ( Loaded { model | page = CreateExercisePage newForm }, Cmd.none )
 
                         Pages.CreateExerciseForm.Cancel ->
                             ( Loaded model, goToMainPageCmd model )
@@ -403,11 +418,11 @@ updateLoaded msg model =
                                 Pages.EditExerciseForm.FormMsg formMsg ->
                                     let
                                         newForm =
-                                            case model.editExerciseForm of
-                                                Just form ->
-                                                    Pages.EditExerciseForm.update formMsg form
+                                            case model.page of
+                                                EditExercisePage page ->
+                                                    Pages.EditExerciseForm.update formMsg page
 
-                                                Nothing ->
+                                                _ ->
                                                     Pages.EditExerciseForm.init exercise
                                     in
                                     case ( formMsg, Pages.EditExerciseForm.getOutput newForm exercise ) of
@@ -436,7 +451,7 @@ updateLoaded msg model =
                                             )
 
                                         _ ->
-                                            ( Loaded { model | editExerciseForm = Just newForm }, Cmd.none )
+                                            ( Loaded { model | page = EditExercisePage newForm }, Cmd.none )
 
                                 Pages.EditExerciseForm.Cancel ->
                                     ( Loaded model, Router.changeRoute model.router (Router.ShowDay exercise.date) )
@@ -448,11 +463,11 @@ updateLoaded msg model =
                     Debug.log "This should not happen" ( Loaded model, Cmd.none )
 
         ShowDayMsg showDayMsg ->
-            case model.showDayPage of
-                Just showDayPage ->
+            case model.page of
+                ShowDayPage page ->
                     let
                         ( newPage, cmd ) =
-                            Pages.ShowDayPage.update showDayMsg showDayPage
+                            Pages.ShowDayPage.update showDayMsg page
                     in
                     case showDayMsg of
                         ToggleValidated id ->
@@ -460,7 +475,7 @@ updateLoaded msg model =
                                 newStore =
                                     Storage.toggleValidated model.store id
                             in
-                            ( Loaded { model | showDayPage = Just newPage, store = newStore }
+                            ( Loaded { model | page = ShowDayPage newPage, store = newStore }
                             , Cmd.batch
                                 [ Cmd.map (\x -> ShowDayMsg x) cmd
                                 , Storage.save newStore
@@ -468,11 +483,11 @@ updateLoaded msg model =
                             )
 
                         _ ->
-                            ( Loaded { model | showDayPage = Just newPage }
+                            ( Loaded { model | page = ShowDayPage newPage }
                             , Cmd.map (\x -> ShowDayMsg x) cmd
                             )
 
-                Nothing ->
+                _ ->
                     Debug.log "This should not happen" ( Loaded model, Cmd.none )
 
 
@@ -496,37 +511,7 @@ loadingToLoaded loading =
             in
             Just
                 { router = router
-                , nextDaysPage = Just (Pages.NextDaysPage.init today)
-                , pastDaysPage = Just (Pages.PastDaysPage.init today)
-                , createExerciseForm = Pages.CreateExerciseForm.init
-                , editExerciseForm =
-                    case Router.getRoute router of
-                        EditExercise id ->
-                            let
-                                maybeExercise =
-                                    case List.filter (\x -> x.id == id) (Storage.getExercises store) of
-                                        exercise :: _ ->
-                                            Just exercise
-
-                                        _ ->
-                                            Nothing
-                            in
-                            case maybeExercise of
-                                Just exercise ->
-                                    Just (Pages.EditExerciseForm.init exercise)
-
-                                Nothing ->
-                                    Nothing
-
-                        _ ->
-                            Nothing
-                , showDayPage =
-                    case Router.getRoute router of
-                        ShowDay date ->
-                            Just (Pages.ShowDayPage.init date)
-
-                        _ ->
-                            Nothing
+                , page = pageFromRoute (Router.getRoute router) today store
                 , store = store
                 , seed = seed
                 , today = today
@@ -534,6 +519,46 @@ loadingToLoaded loading =
 
         _ ->
             Nothing
+
+
+pageFromRoute : Router.Route -> Date -> Store -> Page
+pageFromRoute route today store =
+    case route of
+        ListNextDays ->
+            NextDaysPage (Pages.NextDaysPage.init today)
+
+        ListPastDays ->
+            PastDaysPage (Pages.PastDaysPage.init today)
+
+        CreateExercise ->
+            CreateExercisePage Pages.CreateExerciseForm.init
+
+        EditExercise exerciseId ->
+            let
+                maybeExercise =
+                    case List.filter (\exercise -> exercise.id == exerciseId) (Storage.getExercises store) of
+                        exercise :: _ ->
+                            Just exercise
+
+                        _ ->
+                            Nothing
+            in
+            case maybeExercise of
+                Just exercise ->
+                    EditExercisePage (Pages.EditExerciseForm.init exercise)
+
+                Nothing ->
+                    NotFoundPage
+
+        -- TODO
+        DeleteExercise exerciseId ->
+            NotFoundPage
+
+        ShowDay date ->
+            ShowDayPage (Pages.ShowDayPage.init date)
+
+        NotFound ->
+            NotFoundPage
 
 
 subscriptions : Model -> Sub Msg
@@ -576,47 +601,24 @@ viewLoading model =
 
 viewLoaded : LoadedModel -> Html Msg
 viewLoaded model =
-    case Router.getRoute model.router of
-        NotFound ->
+    case model.page of
+        NotFoundPage ->
             viewNotFound
 
-        ListNextDays ->
-            case model.nextDaysPage of
-                Just nextDaysPage ->
-                    Pages.NextDaysPage.view model.store nextDaysPage
+        NextDaysPage page ->
+            Pages.NextDaysPage.view model.store page
 
-                Nothing ->
-                    viewNotFound
+        PastDaysPage page ->
+            Pages.PastDaysPage.view model.store page
 
-        ListPastDays ->
-            case model.pastDaysPage of
-                Just pastDaysPage ->
-                    Pages.PastDaysPage.view model.store pastDaysPage
+        CreateExercisePage page ->
+            viewCreateExercise page
 
-                Nothing ->
-                    viewNotFound
+        EditExercisePage page ->
+            viewEditExercise page
 
-        CreateExercise ->
-            viewCreateExercise model.createExerciseForm
-
-        EditExercise _ ->
-            case model.editExerciseForm of
-                Just form ->
-                    viewEditExercise form
-
-                Nothing ->
-                    viewNotFound
-
-        DeleteExercise id ->
-            Html.text (strings.deletingExercise (Exercise.idToString id))
-
-        ShowDay date ->
-            case model.showDayPage of
-                Just showDayPage ->
-                    Html.map (\x -> ShowDayMsg x) (Pages.ShowDayPage.view model.store showDayPage)
-
-                Nothing ->
-                    viewNotFound
+        ShowDayPage page ->
+            Html.map (\x -> ShowDayMsg x) (Pages.ShowDayPage.view model.store page)
 
 
 viewNotFound : Html Msg

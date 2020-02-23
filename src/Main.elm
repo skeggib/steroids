@@ -22,7 +22,7 @@ import Pages.CreateExerciseForm
 import Pages.EditExerciseForm
 import Pages.NextDaysPage
 import Pages.PastDaysPage
-import Pages.ShowDayPage
+import Pages.ShowDayPage exposing (Msg(..))
 import Random
 import Router exposing (Route(..), parseRoute)
 import Task
@@ -452,11 +452,22 @@ updateLoaded msg model =
                 Just showDayPage ->
                     let
                         ( newPage, cmd ) =
-                            Pages.ShowDayPage.update showDayMsg model.store showDayPage
+                            Pages.ShowDayPage.update showDayMsg showDayPage
                     in
-                    ( Loaded { model | showDayPage = Just newPage }
-                    , Cmd.map (\x -> ShowDayMsg x) cmd
-                    )
+                    case showDayMsg of
+                        ToggleValidated id ->
+                            let
+                                newStore =
+                                    Storage.toggleValidated model.store id
+                            in
+                            ( Loaded { model | showDayPage = Just newPage, store = newStore }
+                            , Cmd.map (\x -> ShowDayMsg x) cmd
+                            )
+
+                        _ ->
+                            ( Loaded { model | showDayPage = Just newPage }
+                            , Cmd.map (\x -> ShowDayMsg x) cmd
+                            )
 
                 Nothing ->
                     Debug.log "This should not happen" ( Loaded model, Cmd.none )

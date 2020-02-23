@@ -1,4 +1,4 @@
-module Pages.ShowDayPage exposing (Msg, Page, init, update, view)
+module Pages.ShowDayPage exposing (Msg(..), Page, init, update, view)
 
 import Bootstrap exposing (col, row)
 import Date exposing (Date)
@@ -36,45 +36,11 @@ init date =
     }
 
 
-update : Msg -> Storage.Store -> Page -> ( Page, Cmd Msg )
-update msg store page =
+update : Msg -> Page -> ( Page, Cmd Msg )
+update msg page =
     case msg of
-        ToggleValidated exerciseId ->
-            let
-                exercises =
-                    Storage.getExercises store
-
-                filteredExercises =
-                    List.filter (\e -> e.id == exerciseId) exercises
-
-                updatedExercise =
-                    case filteredExercises of
-                        exerciseToUpdate :: _ ->
-                            Just { exerciseToUpdate | validated = not exerciseToUpdate.validated }
-
-                        [] ->
-                            Nothing
-
-                updatedExercisesList =
-                    case updatedExercise of
-                        Just exercise ->
-                            List.map
-                                (\e ->
-                                    if e.id == exerciseId then
-                                        exercise
-
-                                    else
-                                        e
-                                )
-                                exercises
-
-                        Nothing ->
-                            exercises
-
-                updatedStore =
-                    Storage.setExercises updatedExercisesList store
-            in
-            ( page, Storage.save updatedStore )
+        ToggleValidated _ ->
+            ( page, Cmd.none )
 
         ExerciseLongPress event ->
             let

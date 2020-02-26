@@ -1,8 +1,16 @@
-module CreateExerciseForm exposing (Form, Msg(..), getOutput, init, isSubmit, update, validate, view)
+module Pages.CreateExerciseForm exposing
+    ( Form
+    , Msg(..)
+    , getOutput
+    , init
+    , isSubmit
+    , update
+    , validate
+    , view
+    )
 
 import Bootstrap exposing (col, row)
 import Date
-import ExerciseVersion2 as Exercise
 import Form exposing (getFieldAsString)
 import Form.Error exposing (ErrorValue(..), value)
 import Form.Field exposing (asString)
@@ -11,6 +19,7 @@ import Form.Validate exposing (Validation, andMap, andThen, field, int, minInt, 
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
+import Model.ExerciseVersion2 as Exercise
 import Random
 
 

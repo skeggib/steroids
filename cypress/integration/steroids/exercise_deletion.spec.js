@@ -3,8 +3,8 @@ import { iso_today } from '../../support/helpers.js'
 describe('The action bar', function () {
 
     this.beforeEach(function () {
+        cy.add_exercise_to_storage('Exercise name', 10, 20, iso_today)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name', 10, 20, iso_today)
         cy.get('.dayLink').click()
         cy.get('.exercise').long_press()
     })

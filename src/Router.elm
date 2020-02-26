@@ -3,7 +3,7 @@ module Router exposing (Route(..), RouteMsg, Router, changeRoute, getRoute, init
 import Browser
 import Browser.Navigation as Nav
 import Date exposing (Date)
-import ExerciseVersion2 as Exercise
+import Model.ExerciseVersion2 as Exercise
 import Url exposing (Url)
 import Url.Parser exposing ((</>), Parser, custom, map, oneOf, parse, s, top)
 

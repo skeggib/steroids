@@ -1,13 +1,13 @@
 module StorageTests exposing (suite)
 
 import Date
-import ExerciseVersion1
-import ExerciseVersion2
 import Expect
 import Json.Decode
+import Model.ExerciseVersion1
+import Model.ExerciseVersion2
+import Model.StorageVersion1
+import Model.StorageVersion2
 import Random
-import StorageVersion1
-import StorageVersion2
 import Test exposing (Test, describe, test)
 import Time
 
@@ -23,7 +23,7 @@ suite =
                             Date.fromCalendarDate 2012 Time.Mar 30
 
                         id =
-                            ExerciseVersion1.createId (Random.initialSeed 0)
+                            Model.ExerciseVersion1.createId (Random.initialSeed 0)
 
                         exercise =
                             { id = Tuple.first id
@@ -34,14 +34,14 @@ suite =
                             }
 
                         store =
-                            StorageVersion1.setExercises [ exercise ] StorageVersion1.init
+                            Model.StorageVersion1.setExercises [ exercise ] Model.StorageVersion1.init
 
                         encoded =
-                            StorageVersion1.encode store
+                            Model.StorageVersion1.encode store
                     in
                     Expect.equal
                         (Ok store)
-                        (Json.Decode.decodeValue StorageVersion1.decoder encoded)
+                        (Json.Decode.decodeValue Model.StorageVersion1.decoder encoded)
             , test "a v2 encoded store can be decoded" <|
                 \_ ->
                     let
@@ -49,7 +49,7 @@ suite =
                             Date.fromCalendarDate 2012 Time.Mar 30
 
                         id =
-                            ExerciseVersion2.createId (Random.initialSeed 0)
+                            Model.ExerciseVersion2.createId (Random.initialSeed 0)
 
                         exercise =
                             { id = Tuple.first id
@@ -61,13 +61,13 @@ suite =
                             }
 
                         store =
-                            StorageVersion2.setExercises [ exercise ] StorageVersion2.init
+                            Model.StorageVersion2.setExercises [ exercise ] Model.StorageVersion2.init
 
                         encoded =
-                            StorageVersion2.encode store
+                            Model.StorageVersion2.encode store
                     in
                     Expect.equal
                         (Ok store)
-                        (Json.Decode.decodeValue StorageVersion2.decoder encoded)
+                        (Json.Decode.decodeValue Model.StorageVersion2.decoder encoded)
             ]
         ]

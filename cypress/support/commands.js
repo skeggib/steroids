@@ -24,6 +24,8 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite("visit", (originalFn, url, options) => { ... })
 
+import { generateUUID } from './helpers.js'
+
 /**
  * Navigate to the exercise creation page using buttons.
  */
@@ -56,6 +58,25 @@ Cypress.Commands.add('create_exercise', (exercise_name, sets_number, repetitions
     cy.navigate_to_create_exercise_page()
     cy.fill_input_fields(exercise_name, sets_number, repetitions_number, date)
     cy.click_create_button()
+})
+
+Cypress.Commands.add('add_exercise_to_storage', (exercise_name, sets_number, repetitions_number, date, id = null) => {
+    var storage = JSON.parse(localStorage.getItem('storage'))
+    if (storage === null) {
+        storage = {
+            "version": 2,
+            "exercises": []
+        }
+    }
+    storage.exercises.push({
+        "id": id || generateUUID(),
+        "name": exercise_name,
+        "setsNumber": sets_number,
+        "repetitionsNumber": repetitions_number,
+        "date": date,
+        "validated": false
+    })
+    localStorage.setItem('storage', JSON.stringify(storage))
 })
 
 Cypress.Commands.add('long_press', { prevSubject: true }, (subject, duration = 1000) => {

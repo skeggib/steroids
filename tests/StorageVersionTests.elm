@@ -1,13 +1,13 @@
 module StorageVersionTests exposing (suite)
 
 import Date
-import ExerciseVersion1
-import ExerciseVersion2
 import Expect
 import Json.Decode
+import Model.ExerciseVersion1
+import Model.ExerciseVersion2
+import Model.StorageVersion1
+import Model.StorageVersion2
 import Random
-import StorageVersion1
-import StorageVersion2
 import Test exposing (Test, describe, test)
 import Time
 
@@ -16,10 +16,10 @@ suite : Test
 suite =
     let
         ( id1v1, seed1v1 ) =
-            ExerciseVersion1.createId (Random.initialSeed 0)
+            Model.ExerciseVersion1.createId (Random.initialSeed 0)
 
         ( id2v1, _ ) =
-            ExerciseVersion1.createId seed1v1
+            Model.ExerciseVersion1.createId seed1v1
 
         exercise1v1 =
             { id = id1v1
@@ -38,21 +38,21 @@ suite =
             }
 
         expectedv1 =
-            StorageVersion1.setExercises [ exercise1v1, exercise2v1 ] StorageVersion1.init
+            Model.StorageVersion1.setExercises [ exercise1v1, exercise2v1 ] Model.StorageVersion1.init
 
         jsonNoVersion =
             """
             {
                 "exercises": [
                     {
-                        "id": """ ++ "\"" ++ ExerciseVersion1.idToString exercise1v1.id ++ "\"" ++ """,
+                        "id": """ ++ "\"" ++ Model.ExerciseVersion1.idToString exercise1v1.id ++ "\"" ++ """,
                         "name": "test 1",
                         "setsNumber": 10,
                         "repetitionsNumber": 5,
                         "date": "2020-01-19"
                     },
                     {
-                        "id": """ ++ "\"" ++ ExerciseVersion1.idToString exercise2v1.id ++ "\"" ++ """,
+                        "id": """ ++ "\"" ++ Model.ExerciseVersion1.idToString exercise2v1.id ++ "\"" ++ """,
                         "name": "test 2",
                         "setsNumber": 5,
                         "repetitionsNumber": 10,
@@ -68,14 +68,14 @@ suite =
                 "version": 1,
                 "exercises": [
                     {
-                        "id": """ ++ "\"" ++ ExerciseVersion1.idToString exercise1v1.id ++ "\"" ++ """,
+                        "id": """ ++ "\"" ++ Model.ExerciseVersion1.idToString exercise1v1.id ++ "\"" ++ """,
                         "name": "test 1",
                         "setsNumber": 10,
                         "repetitionsNumber": 5,
                         "date": "2020-01-19"
                     },
                     {
-                        "id": """ ++ "\"" ++ ExerciseVersion1.idToString exercise2v1.id ++ "\"" ++ """,
+                        "id": """ ++ "\"" ++ Model.ExerciseVersion1.idToString exercise2v1.id ++ "\"" ++ """,
                         "name": "test 2",
                         "setsNumber": 5,
                         "repetitionsNumber": 10,
@@ -86,10 +86,10 @@ suite =
             """
 
         ( id1v2, seed1v2 ) =
-            ExerciseVersion2.createId (Random.initialSeed 0)
+            Model.ExerciseVersion2.createId (Random.initialSeed 0)
 
         ( id2v2, _ ) =
-            ExerciseVersion2.createId seed1v2
+            Model.ExerciseVersion2.createId seed1v2
 
         exercise1v2 =
             { id = id1v2
@@ -110,7 +110,7 @@ suite =
             }
 
         expectedv2 =
-            StorageVersion2.setExercises [ exercise1v2, exercise2v2 ] StorageVersion2.init
+            Model.StorageVersion2.setExercises [ exercise1v2, exercise2v2 ] Model.StorageVersion2.init
 
         jsonv2 =
             """
@@ -118,7 +118,7 @@ suite =
                 "version": 2,
                 "exercises": [
                     {
-                        "id": """ ++ "\"" ++ ExerciseVersion2.idToString exercise1v2.id ++ "\"" ++ """,
+                        "id": """ ++ "\"" ++ Model.ExerciseVersion2.idToString exercise1v2.id ++ "\"" ++ """,
                         "name": "test 1",
                         "setsNumber": 10,
                         "repetitionsNumber": 5,
@@ -126,7 +126,7 @@ suite =
                         "validated": false
                     },
                     {
-                        "id": """ ++ "\"" ++ ExerciseVersion2.idToString exercise2v2.id ++ "\"" ++ """,
+                        "id": """ ++ "\"" ++ Model.ExerciseVersion2.idToString exercise2v2.id ++ "\"" ++ """,
                         "name": "test 2",
                         "setsNumber": 5,
                         "repetitionsNumber": 10,
@@ -143,23 +143,23 @@ suite =
                 \_ ->
                     Expect.equal
                         (Ok expectedv1)
-                        (Json.Decode.decodeString StorageVersion1.decoder jsonv1)
+                        (Json.Decode.decodeString Model.StorageVersion1.decoder jsonv1)
             , test "a version 2 JSON can be decoded" <|
                 \_ ->
                     Expect.equal
                         (Ok expectedv2)
-                        (Json.Decode.decodeString StorageVersion2.decoder jsonv2)
+                        (Json.Decode.decodeString Model.StorageVersion2.decoder jsonv2)
             ]
         , describe "Conversion tests"
             [ test "a no version JSON can be converted into the latest version store" <|
                 \_ ->
                     Expect.equal
                         (Ok expectedv2)
-                        (Json.Decode.decodeString StorageVersion2.decoder jsonNoVersion)
+                        (Json.Decode.decodeString Model.StorageVersion2.decoder jsonNoVersion)
             , test "a version 1 JSON can be converted into the latest version store" <|
                 \_ ->
                     Expect.equal
                         (Ok expectedv2)
-                        (Json.Decode.decodeString StorageVersion2.decoder jsonv1)
+                        (Json.Decode.decodeString Model.StorageVersion2.decoder jsonv1)
             ]
         ]

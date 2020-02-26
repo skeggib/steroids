@@ -2,9 +2,9 @@ import { iso_today, iso_tomorrow } from '../../support/helpers.js'
 
 describe('Cancelling an exercise edit', function () {
     it('goes back to the day containing the exercise', function () {
+        cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)
+        cy.add_exercise_to_storage('Exercise name 2', 30, 40, iso_tomorrow)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name 1', 10, 20, iso_today)
-        cy.create_exercise('Exercise name 2', 30, 40, iso_tomorrow)
         cy.get('.dayLink').first().click()
         cy.get('.exercise').long_press()
         cy.get('.action-bar').contains('edit').click({ force: true })
@@ -15,9 +15,9 @@ describe('Cancelling an exercise edit', function () {
 
 describe('Editing the name of an exercise', function () {
     it('goes back to the day containing the exercise', function () {
+        cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)
+        cy.add_exercise_to_storage('Exercise name 2', 30, 40, iso_tomorrow)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name 1', 10, 20, iso_today)
-        cy.create_exercise('Exercise name 2', 30, 40, iso_tomorrow)
         cy.get('.dayLink').first().click()
         cy.get('.exercise').long_press()
         cy.get('.action-bar').contains('edit').click({ force: true })
@@ -29,9 +29,9 @@ describe('Editing the name of an exercise', function () {
 
 describe('Editing the date of an exercise', function () {
     it('goes back to the new day containing the exercise', function () {
+        cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)
+        cy.add_exercise_to_storage('Exercise name 2', 30, 40, iso_tomorrow)
         cy.visit('http://localhost:8000/')
-        cy.create_exercise('Exercise name 1', 10, 20, iso_today)
-        cy.create_exercise('Exercise name 2', 30, 40, iso_tomorrow)
         cy.get('.dayLink').first().click()
         cy.get('.exercise').long_press()
         cy.get('.action-bar').contains('edit').click({ force: true })
@@ -44,9 +44,9 @@ describe('Editing the date of an exercise', function () {
 describe('Deleting an exercise', function () {
     context('in a day containing multiple exercises', function () {
         this.beforeEach(() => {
+            cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)
+            cy.add_exercise_to_storage('Exercise name 2', 30, 40, iso_today)
             cy.visit('http://localhost:8000/')
-            cy.create_exercise('Exercise name 1', 10, 20, iso_today)
-            cy.create_exercise('Exercise name 2', 30, 40, iso_today)
         })
 
         it('stays on that day', function () {
@@ -66,9 +66,9 @@ describe('Deleting an exercise', function () {
 
     context('in a day containing only one exercise', function () {
         this.beforeEach(() => {
+            cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)
+            cy.add_exercise_to_storage('Exercise name 2', 30, 40, iso_tomorrow)
             cy.visit('http://localhost:8000/')
-            cy.create_exercise('Exercise name 1', 10, 20, iso_today)
-            cy.create_exercise('Exercise name 2', 30, 40, iso_tomorrow)
         })
 
         it('goes back to the main page', function () {

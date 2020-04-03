@@ -123,9 +123,9 @@ type Msg
     | ShowDayMsg Pages.ShowDayPage.Msg
 
 
-goToMainPageCmd : Router.Router -> Cmd Msg
-goToMainPageCmd router =
-    Router.changeRoute router Router.ListNextDays
+mainPage : Router.Route
+mainPage =
+    Router.ListNextDays
 
 
 updateLoading : Msg -> LoadingModel -> ( Model, Cmd Msg )
@@ -289,19 +289,19 @@ updateLoaded msg model =
                                     Pages.CreateExerciseForm.update formMsg page
                             in
                             case ( formMsg, Pages.CreateExerciseForm.getOutput newForm model.seed ) of
-                                ( Form.Submit, Just tuple ) ->
+                                ( Form.Submit, Just ( exercise, newSeed ) ) ->
                                     let
                                         newStore =
-                                            Storage.setExercises (Tuple.first tuple :: Storage.getExercises model.store) model.store
+                                            Storage.setExercises (exercise :: Storage.getExercises model.store) model.store
                                     in
                                     ( Loaded
                                         { model
                                             | store = newStore
-                                            , seed = Tuple.second tuple
+                                            , seed = newSeed
                                         }
                                     , Cmd.batch
                                         [ Storage.save newStore
-                                        , goToMainPageCmd model.router
+                                        , Router.replace model.router (Router.ShowDay exercise.date)
                                         ]
                                     )
 
@@ -309,7 +309,7 @@ updateLoaded msg model =
                                     ( Loaded { model | page = CreateExercisePage newForm }, Cmd.none )
 
                         Pages.CreateExerciseForm.Cancel ->
-                            ( Loaded model, goToMainPageCmd model.router )
+                            ( Loaded model, Router.back model.router )
 
                 _ ->
                     ( Loaded model, Cmd.none )
@@ -356,7 +356,7 @@ updateLoaded msg model =
                                                 { model | store = newStore }
                                             , Cmd.batch
                                                 [ Storage.save newStore
-                                                , Router.changeRoute model.router (Router.ShowDay updatedExercise.date)
+                                                , Router.replace model.router (Router.ShowDay updatedExercise.date)
                                                 ]
                                             )
 
@@ -364,10 +364,10 @@ updateLoaded msg model =
                                             ( Loaded { model | page = EditExercisePage newForm }, Cmd.none )
 
                                 Pages.EditExerciseForm.Cancel ->
-                                    ( Loaded model, Router.changeRoute model.router (Router.ShowDay exercise.date) )
+                                    ( Loaded model, Router.back model.router )
 
                         Nothing ->
-                            Debug.log "There is no exercises with this ID" ( Loaded model, goToMainPageCmd model.router )
+                            Debug.log "There is no exercises with this ID" ( Loaded model, Router.push model.router mainPage )
 
                 _ ->
                     Debug.log "This should not happen" ( Loaded model, Cmd.none )
@@ -437,11 +437,11 @@ deleteExercise id store router =
     , Cmd.batch
         [ Storage.save newStore
         , case maybeDeletedExerciseDate of
-            Just date ->
-                Router.changeRoute router (Router.ShowDay date)
+            Just _ ->
+                Router.back router
 
             Nothing ->
-                goToMainPageCmd router
+                Router.replace router Router.ListNextDays
         ]
     )
 

@@ -1,5 +1,26 @@
 import { iso_today, iso_tomorrow } from '../../support/helpers.js'
 
+describe('Cancelling an exercise creation', function () {
+    it('goes back to the previous page', function () {
+        it('from next days page', () => {
+            cy.visit('http://localhost:8000/')
+            cy.navigate_to_create_exercise_page()
+            cy.contains('Cancel').click()
+            cy.location().should((location) => {
+                expect(location.pathname).to.eq('/')
+            })
+        })
+        it('from past days page', () => {
+            cy.visit('http://localhost:8000/past')
+            cy.visit('http://localhost:8000/exercises/create')
+            cy.contains('Cancel').click()
+            cy.location().should((location) => {
+                expect(location.pathname).to.eq('/')
+            })
+        })
+    })
+})
+
 describe('Cancelling an exercise edit', function () {
     it('goes back to the day containing the exercise', function () {
         cy.add_exercise_to_storage('Exercise name 1', 10, 20, iso_today)

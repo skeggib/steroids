@@ -146,12 +146,12 @@ view form =
     in
     Html.div [ Html.Attributes.class "container" ]
         [ row [] [ Html.h1 [ Html.Attributes.class "my-3" ] [ Html.text "Create an exercise" ] |> col [] ]
-        , row [] [ inputGroup "Name" nameField |> col [] ]
+        , row [] [ inputGroup "Name" nameField [] |> col [] ]
         , row []
-            [ inputGroup "Sets number" setsNumberField |> col []
-            , inputGroup "Repetitions number" repetitionsNumberField |> col []
+            [ inputGroup "Sets number" setsNumberField [ Html.Attributes.type_ "number" ] |> col []
+            , inputGroup "Repetitions number" repetitionsNumberField [ Html.Attributes.type_ "number" ] |> col []
             ]
-        , row [] [ inputGroup "Date" dateField |> col [] ]
+        , row [] [ inputGroup "Date" dateField [ Html.Attributes.type_ "date" ] |> col [] ]
         , row [ Html.Attributes.class "mt-3" ]
             [ col []
                 (Html.div []
@@ -163,8 +163,8 @@ view form =
         ]
 
 
-inputGroup : String -> Form.FieldState Error String -> Html Msg
-inputGroup label field =
+inputGroup : String -> Form.FieldState Error String -> List (Html.Attribute Form.Msg) -> Html Msg
+inputGroup label field attributes =
     let
         isInvalid =
             case field.liveError of
@@ -186,16 +186,19 @@ inputGroup label field =
         [ Html.label [] [ Html.text label ]
         , Html.map FormMsg
             (textInput field
-                [ Html.Attributes.class
-                    ("form-control"
-                        ++ (if isInvalid then
-                                " is-invalid"
+                (List.append
+                    [ Html.Attributes.class
+                        ("form-control"
+                            ++ (if isInvalid then
+                                    " is-invalid"
 
-                            else
-                                ""
-                           )
-                    )
-                ]
+                                else
+                                    ""
+                               )
+                        )
+                    ]
+                    attributes
+                )
             )
         , Html.div [ Html.Attributes.class "invalid-feedback" ] [ feedback ]
         ]

@@ -1,4 +1,4 @@
-module Router exposing (Route(..), RouteMsg, Router, changeRoute, getRoute, initRouter, onUrlChanged, onUrlRequested, parseRoute, toLink, update)
+module Router exposing (Route(..), RouteMsg, Router, back, getRoute, initRouter, onUrlChanged, onUrlRequested, parseRoute, push, replace, toLink, update)
 
 import Browser
 import Browser.Navigation as Nav
@@ -50,9 +50,19 @@ initRouter url key =
         }
 
 
-changeRoute : Router -> Route -> Cmd msg
-changeRoute router route =
+push : Router -> Route -> Cmd msg
+push router route =
     Nav.pushUrl (getKey router) (toLink route)
+
+
+back : Router -> Cmd msg
+back router =
+    Nav.back (getKey router) 1
+
+
+replace : Router -> Route -> Cmd msg
+replace router route =
+    Nav.replaceUrl (getKey router) (toLink route)
 
 
 getKey : Router -> Nav.Key

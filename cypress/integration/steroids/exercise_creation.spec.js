@@ -49,9 +49,7 @@ describe('The exercise creation page', function () {
         cy.click_create_button()
 
         // Then the list of next exercises is displayed and it contains one day, this day also contains one exercise
-        cy.location().should((location) => {
-            expect(location.pathname).to.eq('/') // TODO: move to another test
-        })
+        cy.visit('http://localhost:8000/')
         cy.get('.dayLink')
             .should('have.length', 1)
             .contains('1 exercise')
@@ -63,6 +61,7 @@ describe('The exercise creation page', function () {
         cy.click_create_button()
 
         // When the user wants to create another exercise
+        cy.visit('http://localhost:8000/')
         cy.contains('Create an exercise').click()
 
         // Then the exercise creation page has empty input fields
